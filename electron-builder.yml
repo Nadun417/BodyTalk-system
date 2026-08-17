@@ -1,0 +1,38 @@
+appId: com.bodytalk.app
+productName: BodyTalk
+copyright: Copyright © 2026 M.B. Nadun Mathuja Fernando
+
+directories:
+  buildResources: build
+  output: dist
+
+files:
+  - out/**/*
+  - package.json
+
+# The Python pipeline ships next to the app rather than being packed inside it.
+# The virtual environment is left out on purpose: it contains paths specific to this
+# machine and would not work anywhere else. Bundling a Python that runs on a user's
+# computer without them installing anything is a job for later.
+extraResources:
+  - from: pipeline
+    to: pipeline
+    filter:
+      - '**/*'
+      - '!.venv/**'
+      - '!**/__pycache__/**'
+
+# No auto-update and nowhere to publish to. An app that checks for updates is an app that
+# talks to the internet, which is exactly what this one is not supposed to do.
+publish: null
+
+win:
+  target:
+    - nsis
+  artifactName: ${productName}-${version}-setup.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false

@@ -1,0 +1,7 @@
+out
+dist
+node_modules
+pipeline/.venv
+**/__pycache__
+doc
+package-lock.json

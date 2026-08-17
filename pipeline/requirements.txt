@@ -1,0 +1,15 @@
+# Python packages the analysis pipeline needs.
+#
+# Versions are pinned rather than left open so that a run months from now behaves exactly
+# as it did during testing. Landmark detection results can shift between library versions,
+# and results that cannot be reproduced are not much use as evidence.
+#
+# Needs Python 3.11 or 3.12. MediaPipe does not publish builds for 3.14, which is what this
+# machine has installed by default, so the pipeline runs in its own virtual environment.
+# See pipeline/.python-version.
+mediapipe==0.10.21
+opencv-python==4.11.0.86
+numpy==1.26.4
+
+# Testing only, not needed to run the pipeline
+pytest==8.3.4
