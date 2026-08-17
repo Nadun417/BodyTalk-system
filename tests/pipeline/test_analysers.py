@@ -10,6 +10,7 @@ import math
 
 from analysers import (
     FaceAnalyser,
+    PoseAnalyser,
     dist,
     presence_rate,
     scale,
@@ -58,14 +59,61 @@ def build_face(
     return lm
 
 
-def frame(t_s: float, face=None, left_hand: bool = False, right_hand: bool = False) -> dict:
+POSE_POINTS = 33
+
+
+def build_pose(
+    aspect: float,
+    lean_x: float = 0.0,
+    shoulder_drop: float = 0.0,
+    centre_x: float = 0.5,
+    shoulder_width: float = 0.40,
+    neck_length: float = 0.20,
+    visibility: float = 1.0,
+    hip_visibility: float = 0.0,
+) -> list:
+    """A synthetic 33-point body, described in even units then converted.
+
+    Same trick as the face builder: lay the body out as if the frame were square, then
+    divide x by the aspect so it matches what MediaPipe would report on a frame of that
+    shape. That lets a test build the same physical posture at two aspect ratios and check
+    the measurements agree.
+
+    `lean_x` slides the nose sideways from above the shoulders, which is how a lean is
+    simulated. `shoulder_drop` lifts one shoulder above the other. `hip_visibility` is left
+    at zero by default because a typical practice recording crops the hips out.
+    """
+    half = shoulder_width / 2.0
+    shoulder_y = 0.6
+
+    def point(x_even: float, y: float, vis: float) -> list:
+        return [x_even / aspect, y, 0.0, vis]
+
+    lm = [[0.0, 0.0, 0.0, 0.0] for _ in range(POSE_POINTS)]
+    lm[0] = point(centre_x + lean_x, shoulder_y - neck_length, visibility)  # nose
+    lm[11] = point(centre_x + half, shoulder_y - shoulder_drop, visibility)  # left shoulder
+    lm[12] = point(centre_x - half, shoulder_y, visibility)  # right shoulder
+    lm[13] = point(centre_x + half, shoulder_y + 0.15, visibility)  # left elbow
+    lm[14] = point(centre_x - half, shoulder_y + 0.15, visibility)  # right elbow
+    lm[23] = point(centre_x + half * 0.7, shoulder_y + 0.35, hip_visibility)  # left hip
+    lm[24] = point(centre_x - half * 0.7, shoulder_y + 0.35, hip_visibility)  # right hip
+    return lm
+
+
+def frame(
+    t_s: float,
+    face=None,
+    pose=None,
+    left_hand: bool = False,
+    right_hand: bool = False,
+) -> dict:
     """One frame record in the shape the landmark cache stores."""
     return {
         "type": "frame",
         "frameIndex": int(t_s * 6),
         "tS": t_s,
         "face": {"detected": face is not None, "landmarks": face},
-        "pose": {"detected": False, "landmarks": None},
+        "pose": {"detected": pose is not None, "landmarks": pose},
         "leftHand": {"detected": left_hand, "landmarks": [] if left_hand else None},
         "rightHand": {"detected": right_hand, "landmarks": [] if right_hand else None},
     }
@@ -267,4 +315,144 @@ def test_score_is_the_mean_of_available_sub_scores():
     frames = [frame(t / 6.0, build_face(1.78)) for t in range(6)]
     detail = analyser.analyse_detail(one_window(frames))
     parts = [p for p in (detail.facing, detail.liveliness, detail.stability) if p is not None]
+    assert abs(detail.score - sum(parts) / len(parts)) < 1e-9
+
+
+# ------------------------------------------------------------------------ PoseAnalyser
+
+
+def pose_window(frames: list) -> Window:
+    return Window(index=0, t_start_s=0.0, t_end_s=1.0, frames=frames)
+
+
+def test_undetected_body_yields_no_score_not_a_zero():
+    """Same rule as the face channel: nothing seen means no score, never a zero.
+
+    A zero would read as poor posture when the truth is that the body was not in shot.
+    """
+    analyser = PoseAnalyser(aspect=1.78)
+    result = analyser.analyse(pose_window([frame(0.0), frame(0.2)]))
+    assert result["score"] is None
+    assert result["visibility"] == 0.0
+
+
+def test_upright_still_body_scores_full_marks():
+    analyser = PoseAnalyser(aspect=1.78)
+    frames = [frame(t / 6.0, pose=build_pose(1.78)) for t in range(6)]
+    detail = analyser.analyse_detail(pose_window(frames))
+    assert detail.lean_degrees < 1e-9  # nose directly above the shoulder midpoint
+    assert detail.uprightness == 100.0
+    assert detail.levelness == 100.0  # shoulders exactly level
+    assert detail.sway == 100.0  # body did not move at all
+    assert detail.score == 100.0
+
+
+def test_leaning_body_scores_low_on_uprightness():
+    analyser = PoseAnalyser(aspect=1.78)
+    # Nose pushed well to one side of the shoulder midpoint over a short neck.
+    frames = [frame(t / 6.0, pose=build_pose(1.78, lean_x=0.15, neck_length=0.20)) for t in range(6)]
+    detail = analyser.analyse_detail(pose_window(frames))
+    assert detail.lean_degrees > 25.0
+    assert detail.uprightness == 0.0
+
+
+def test_uneven_shoulders_score_low_on_levelness():
+    analyser = PoseAnalyser(aspect=1.78)
+    # One shoulder a fifth of a shoulder-width higher than the other.
+    frames = [
+        frame(t / 6.0, pose=build_pose(1.78, shoulder_drop=0.08, shoulder_width=0.40))
+        for t in range(6)
+    ]
+    detail = analyser.analyse_detail(pose_window(frames))
+    assert detail.levelness_raw > 0.18
+    assert detail.levelness == 0.0
+
+
+def test_body_drifting_sideways_scores_low_on_sway():
+    analyser = PoseAnalyser(aspect=1.78)
+    # The whole body slides across the frame during the window.
+    frames = [
+        frame(t / 6.0, pose=build_pose(1.78, centre_x=0.5 + 0.02 * t)) for t in range(6)
+    ]
+    detail = analyser.analyse_detail(pose_window(frames))
+    assert detail.sway_raw > 0.06
+    assert detail.sway == 0.0
+
+
+def test_lean_angle_is_the_same_whatever_shape_the_video_is():
+    """A given physical lean has to read as the same number of degrees on any frame shape.
+
+    Angles are the measurement most easily ruined by the per-axis normalisation, because a
+    sideways offset and an upward offset are compared directly against each other.
+    """
+    wide = PoseAnalyser(aspect=1.78).analyse_detail(
+        pose_window([frame(0.0, pose=build_pose(1.78, lean_x=0.05))])
+    )
+    squarish = PoseAnalyser(aspect=1.00).analyse_detail(
+        pose_window([frame(0.0, pose=build_pose(1.00, lean_x=0.05))])
+    )
+    assert abs(wide.lean_degrees - squarish.lean_degrees) < 1e-9
+
+
+def test_shoulder_width_is_measured_in_even_units():
+    analyser = PoseAnalyser(aspect=1.78)
+    frames = [frame(0.0, pose=build_pose(1.78, shoulder_width=0.40))]
+    detail = analyser.analyse_detail(pose_window(frames))
+    assert abs(detail.shoulder_width - 0.40) < 1e-9
+
+
+def test_visibility_is_the_mean_over_the_chosen_landmarks():
+    analyser = PoseAnalyser(aspect=1.78)
+    frames = [frame(0.0, pose=build_pose(1.78, visibility=0.6))]
+    detail = analyser.analyse_detail(pose_window(frames))
+    assert abs(detail.visibility - 0.6) < 1e-9
+
+
+def test_visibility_counts_frames_where_the_body_vanished():
+    """Half the window missing the body should read as half seen, not fully seen.
+
+    Averaging only over the detected frames would quietly hide the gap, and hiding gaps is
+    the opposite of what the visibility figure exists to do.
+    """
+    analyser = PoseAnalyser(aspect=1.78)
+    frames = [
+        frame(0.0, pose=build_pose(1.78, visibility=1.0)),
+        frame(0.2, pose=build_pose(1.78, visibility=1.0)),
+        frame(0.4),
+        frame(0.6),
+    ]
+    detail = analyser.analyse_detail(pose_window(frames))
+    assert abs(detail.visibility - 0.5) < 1e-9
+
+
+def test_cropped_hips_are_simply_not_used():
+    analyser = PoseAnalyser(aspect=1.78)
+    frames = [frame(0.0, pose=build_pose(1.78, hip_visibility=0.0))]
+    detail = analyser.analyse_detail(pose_window(frames))
+    assert detail.used_hips is False
+    assert detail.uprightness is not None  # still scored, from the neck line alone
+
+
+def test_visible_hips_are_used_and_can_only_make_the_lean_worse():
+    """With hips in shot the worse of the two lean readings wins.
+
+    Someone can hold their neck straight while their whole torso tips over, so the torso
+    line has to be able to override a flattering neck reading — never the other way round.
+    """
+    upright_neck = build_pose(1.78, lean_x=0.0, hip_visibility=0.9)
+    # Slide the shoulders sideways relative to the hips, leaving the neck vertical.
+    for index in (11, 12, 0):
+        upright_neck[index][0] += 0.10
+
+    analyser = PoseAnalyser(aspect=1.78)
+    detail = analyser.analyse_detail(pose_window([frame(0.0, pose=upright_neck)]))
+    assert detail.used_hips is True
+    assert detail.lean_degrees > 0.0
+
+
+def test_pose_score_is_the_mean_of_available_sub_scores():
+    analyser = PoseAnalyser(aspect=1.78)
+    frames = [frame(t / 6.0, pose=build_pose(1.78, lean_x=0.03, shoulder_drop=0.02)) for t in range(6)]
+    detail = analyser.analyse_detail(pose_window(frames))
+    parts = [p for p in (detail.uprightness, detail.levelness, detail.sway) if p is not None]
     assert abs(detail.score - sum(parts) / len(parts)) < 1e-9
