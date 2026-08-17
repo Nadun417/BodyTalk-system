@@ -1,0 +1,11 @@
+# Normalise line endings: keep LF in the repo for all text/code.
+* text=auto eol=lf
+
+# Treat these as binary (no eol conversion / diff).
+*.docx binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.mp4 binary
+*.webm binary
+*.mov binary

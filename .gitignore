@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+*.tsbuildinfo
+
+# Python pipeline runtime
+pipeline/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local LLM model files (~2 GB GGUF — downloaded once at dev time, bundled at package time)
+pipeline/models/
+
+# Local app data / generated artefacts (never commit user footage or DBs)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+
+# Test footage (kept out of git; see fixtures/README)
+fixtures/*.mp4
+fixtures/*.webm
+fixtures/*.mov
+
+# Detection caches — large (~20 MB/clip) and regenerable from the footage
+fixtures/landmarks/
+*.landmarks.jsonl
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
+npm-debug.log*
