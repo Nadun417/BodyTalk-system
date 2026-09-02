@@ -102,17 +102,23 @@ class HolisticDetector:
         refine_face_landmarks: bool = False,
         min_detection_confidence: float = 0.5,
         min_tracking_confidence: float = 0.5,
+        static_image_mode: bool = False,
     ) -> None:
         import mediapipe as mp
 
         self.model_complexity = model_complexity
+        # Normally left off, because the frames arrive in order and following the subject
+        # between them gives steadier landmarks. Turning it on treats every frame as an
+        # unrelated photograph, which is what the upload check wants: it takes a handful of
+        # frames from all over a clip, so there is no continuity between them to follow.
+        self.static_image_mode = static_image_mode
         # Leaving this off keeps the face mesh at 468 points, which is what the saved
         # landmark files are built around. Turning it on adds 10 iris points and would make
         # every file already on disk inconsistent with any new ones.
         self.refine_face_landmarks = refine_face_landmarks
 
         self._holistic = mp.solutions.holistic.Holistic(
-            static_image_mode=False,  # treat the input as video, so it tracks between frames
+            static_image_mode=static_image_mode,
             model_complexity=model_complexity,
             refine_face_landmarks=refine_face_landmarks,
             min_detection_confidence=min_detection_confidence,
