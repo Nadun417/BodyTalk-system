@@ -22,11 +22,21 @@ export function registerIpcHandlers(): void {
     return res.canceled ? null : res.filePaths[0]
   })
 
+  ipcMain.handle(IpcChannels.validateVideo, async (_e, videoPath: string) => {
+    const settings = getSettings()
+    return validateVideo(videoPath, settings.minDurationS)
+  })
+
   ipcMain.handle(
     IpcChannels.createSession,
-    (_e, args: { videoPath: string; fusionMode: FusionMode }) => {
+    async (_e, args: { videoPath: string; fusionMode: FusionMode }) => {
+      // Checked again here even though the upload screen has already checked it. The
+      // interface asking first is a courtesy to the user; this is the check that actually
+      // decides, because a file can be deleted or replaced between choosing it and pressing
+      // the button, and because nothing on this side should trust the interface to have
+      // done its homework.
       const settings = getSettings()
-      const validation = validateVideo(args.videoPath, settings.minDurationS)
+      const validation = await validateVideo(args.videoPath, settings.minDurationS)
       if (!validation.ok) return { error: validation.reason ?? 'Invalid video' }
       const id = createSession({
         videoFilename: args.videoPath.split(/[\\/]/).pop() ?? args.videoPath,

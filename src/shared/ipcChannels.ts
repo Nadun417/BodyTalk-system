@@ -14,6 +14,14 @@
 export const IpcChannels = {
   /** Ask the backend to open the system file picker so a video can be chosen. */
   openVideoDialog: 'dialog:openVideo',
+  /**
+   * Check a chosen video is usable, without committing to anything.
+   *
+   * Separate from creating the session so the upload screen can check a file the moment it
+   * is picked and say straight away if there is a problem, rather than letting somebody
+   * choose their settings and press the button before finding out.
+   */
+  validateVideo: 'video:validate',
   /** Check the chosen video is usable, and start a new session if it is. */
   createSession: 'session:create',
   /** Start analysing a session. */
