@@ -97,14 +97,20 @@ class FaceAnalyser(Analyser):
         # facing the camera: an asymmetry of 0.45 scores 0, and 0.10 scores 100
         facing_bad: float = 0.45,
         facing_good: float = 0.10,
-        # liveliness: 0.002 scores 0, and 0.020 scores 100
-        liveliness_bad: float = 0.002,
-        liveliness_good: float = 0.020,
+        # liveliness: 0.005 scores 0, and 0.040 scores 100.
+        # Calibrated 2 Sep 2026: a deliberately held-flat face measured 0.005, ordinary talking
+        # 0.036 and animated talking 0.039. The old good end of 0.020 sat below ordinary talking,
+        # so every real clip clamped at 100 and the measurement said nothing.
+        liveliness_bad: float = 0.005,
+        liveliness_good: float = 0.040,
         liveliness_span_s: float = 10.0,
         min_liveliness_samples: int = 12,  # roughly 2 seconds at 6 frames a second
-        # head stability: a nose-tip spread of 0.08 scores 0, and 0.01 scores 100
-        stability_bad: float = 0.08,
-        stability_good: float = 0.01,
+        # head stability: a nose-tip spread of 0.14 scores 0, and 0.025 scores 100.
+        # Calibrated 2 Sep 2026: deliberately shaking the head measured 0.115, while ordinary
+        # animated talking measured 0.084. The old bad end of 0.08 sat below natural speech, so
+        # simply talking expressively scored zero here, which is the opposite of the intent.
+        stability_bad: float = 0.14,
+        stability_good: float = 0.025,
     ) -> None:
         self.aspect = aspect
         self.facing_bad = facing_bad
