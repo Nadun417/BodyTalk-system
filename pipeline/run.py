@@ -232,12 +232,36 @@ def run_detect_only(args: argparse.Namespace) -> dict:
 
 
 def run_pipeline(args: argparse.Namespace) -> dict:
-    """Real pipeline: extraction → detection → analysers → fusion → feedback.
-    Steps 3-5 fill this in; until then use --detect-only to build the cache."""
-    raise NotImplementedError(
-        "Scoring, weighting and feedback are not written yet. "
-        "Use --detect-only to save the landmarks, or --selftest for the simulated run."
+    """The real thing: a video in, a finished analysis out.
+
+    Progress is reported as it goes, one JSON line per update, which is what the desktop
+    application reads to drive its progress screen. The heavy imports happen inside the
+    pipeline itself, so this path costs nothing until it is actually taken.
+    """
+    from pathlib import Path
+
+    from fusion import make_strategy
+    from pipeline import Pipeline
+
+    if not args.video:
+        raise ValueError("Analysing a video needs --video pointing at one")
+    video = Path(args.video)
+    if not video.exists():
+        raise ValueError(f"Video not found: {video}")
+
+    def report(stage: str, done: int, total: int) -> None:
+        emit({"type": "progress", "stage": stage, "done": done, "total": total})
+
+    pipeline = Pipeline(make_strategy(args.fusion))
+    result = pipeline.run(
+        str(video),
+        fps=args.fps,
+        out_dir=args.out,
+        on_progress=report,
+        reuse_cache=not args.fresh,
     )
+    result["type"] = "result"
+    return result
 
 
 def main() -> int:
@@ -259,6 +283,11 @@ def main() -> int:
         default=1,
         choices=[0, 1, 2],
         help="MediaPipe model_complexity: 0 fastest, 2 most accurate (default 1)",
+    )
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="ignore any cached landmarks and detect the video again from scratch",
     )
     parser.add_argument(
         "--max-frames",

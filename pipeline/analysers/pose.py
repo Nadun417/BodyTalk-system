@@ -33,6 +33,8 @@ from .base import AnalysisResult, Analyser, Window, dist, scale, square
 
 # --- positions of the landmarks used, in the 33-point body model ----------------------
 NOSE = 0
+EYE_OUTER_LEFT = 3
+EYE_OUTER_RIGHT = 6
 SHOULDER_LEFT = 11
 SHOULDER_RIGHT = 12
 ELBOW_LEFT = 13
@@ -80,6 +82,8 @@ class PoseWindow:
     levelness_raw: float | None
     sway_raw: float | None
     shoulder_width: float | None
+    #: how far the head was turned away from the camera, 0 when facing it
+    head_turn: float | None
     #: whether the hips happened to be visible enough to help with the lean measurement
     used_hips: bool
 
@@ -112,6 +116,11 @@ class PoseAnalyser(Analyser):
         sway_good: float = 0.008,
         visibility_landmarks: tuple[int, ...] = VISIBILITY_LANDMARKS,
         hip_visibility_min: float = 0.5,
+        # Above this much head turn, the lean reading is not a posture measurement and is
+        # withheld. Chosen from the calibration footage: at 0.30 it covers 100 % of the
+        # deliberately turned-head segment, 0 % of the deliberate sideways torso lean, and
+        # under 1 % of ordinary talking.
+        head_turn_max: float = 0.30,
     ) -> None:
         self.aspect = aspect
         self.upright_bad_degrees = upright_bad_degrees
@@ -122,6 +131,7 @@ class PoseAnalyser(Analyser):
         self.sway_good = sway_good
         self.visibility_landmarks = visibility_landmarks
         self.hip_visibility_min = hip_visibility_min
+        self.head_turn_max = head_turn_max
 
     # --------------------------------------------------------- measurements per frame
 
@@ -134,6 +144,29 @@ class PoseAnalyser(Analyser):
         answer to "could we see it?" instead of an inferred one.
         """
         return stats.fmean([lm[i][3] for i in self.visibility_landmarks])
+
+    def _head_turn(self, lm: list) -> float:
+        """How far the head is turned away from the camera. 0 means facing it.
+
+        Compares the gap from the nose to each eye. Facing the camera the two are equal;
+        turning the head shrinks one and grows the other. Both gaps run across the face, so
+        the frame-shape correction cancels in the ratio and is not applied.
+
+        This exists because the lean measurement below is taken from the nose, and a turned
+        head moves the nose just as a leaning body does. The two are indistinguishable in
+        that measurement: a deliberately turned head reads 25.3 degrees of lean, and a
+        deliberate sideways torso lean reads 24.0. So the lean has to be withheld when the
+        head is turned, and this is how that condition is recognised.
+
+        Measured from the pose model's own eye landmarks rather than the face mesh, so the
+        pose channel stays independent of the face channel.
+        """
+        d_left = abs(lm[EYE_OUTER_LEFT][0] - lm[NOSE][0])
+        d_right = abs(lm[NOSE][0] - lm[EYE_OUTER_RIGHT][0])
+        total = d_left + d_right
+        if total <= 0:
+            return 0.0
+        return abs(d_left - d_right) / total
 
     def _shoulder_width(self, lm: list) -> float:
         """Distance from shoulder to shoulder, which the other measurements divide by.
@@ -227,6 +260,7 @@ class PoseAnalyser(Analyser):
             levelness_raw=None,
             sway_raw=None,
             shoulder_width=None,
+            head_turn=None,
             used_hips=False,
         )
 
@@ -248,6 +282,7 @@ class PoseAnalyser(Analyser):
         levelnesses: list[float] = []
         widths: list[float] = []
         midpoint_xs: list[float] = []
+        head_turns: list[float] = []
         used_hips = False
 
         for frame in detected:
@@ -262,6 +297,7 @@ class PoseAnalyser(Analyser):
             used_hips = used_hips or hips
             levelnesses.append(self._levelness_raw(lm, shoulder_width))
             midpoint_xs.append(self._shoulder_midpoint(lm)[0])
+            head_turns.append(self._head_turn(lm))
 
         if not widths:
             return self._nothing_seen(window, visibility)
@@ -269,7 +305,18 @@ class PoseAnalyser(Analyser):
         mean_width = stats.fmean(widths)
 
         lean_degrees = stats.fmean(leans)
-        uprightness = scale(lean_degrees, self.upright_bad_degrees, self.upright_good_degrees)
+        head_turn = stats.median(head_turns) if head_turns else 0.0
+
+        # With the head turned, the line from the shoulders to the nose says where the head
+        # is pointing, not how the body is sitting, so no posture claim can be made from it.
+        # Reporting nothing is the honest answer: the alternative is telling somebody they
+        # slouched because they looked at their notes, and a user who is told that once
+        # stops believing the rest. The lean is still reported for transparency; only the
+        # score derived from it is withheld.
+        if head_turn > self.head_turn_max:
+            uprightness = None
+        else:
+            uprightness = scale(lean_degrees, self.upright_bad_degrees, self.upright_good_degrees)
 
         levelness_raw = stats.fmean(levelnesses)
         levelness = scale(levelness_raw, self.levelness_bad, self.levelness_good)
@@ -299,6 +346,7 @@ class PoseAnalyser(Analyser):
             levelness_raw=levelness_raw,
             sway_raw=sway_raw,
             shoulder_width=mean_width,
+            head_turn=head_turn,
             used_hips=used_hips,
         )
 

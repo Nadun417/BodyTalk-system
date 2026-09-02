@@ -73,6 +73,7 @@ def build_pose(
     neck_length: float = 0.20,
     visibility: float = 1.0,
     hip_visibility: float = 0.0,
+    head_turn: float = 0.0,
 ) -> list:
     """A synthetic 33-point body, described in even units then converted.
 
@@ -92,7 +93,13 @@ def build_pose(
         return [x_even / aspect, y, 0.0, vis]
 
     lm = [[0.0, 0.0, 0.0, 0.0] for _ in range(POSE_POINTS)]
-    lm[0] = point(centre_x + lean_x, shoulder_y - neck_length, visibility)  # nose
+    nose_x = centre_x + lean_x
+    lm[0] = point(nose_x, shoulder_y - neck_length, visibility)  # nose
+    # Eyes either side of the nose. `head_turn` shifts the nose between them, which is what
+    # turning the head does: one nose-to-eye gap shrinks while the other grows.
+    eye_half = 0.06
+    lm[3] = point(nose_x + eye_half * (1 - head_turn), shoulder_y - neck_length, visibility)
+    lm[6] = point(nose_x - eye_half * (1 + head_turn), shoulder_y - neck_length, visibility)
     lm[11] = point(centre_x + half, shoulder_y - shoulder_drop, visibility)  # left shoulder
     lm[12] = point(centre_x - half, shoulder_y, visibility)  # right shoulder
     lm[13] = point(centre_x + half, shoulder_y + 0.15, visibility)  # left elbow
@@ -615,3 +622,32 @@ def test_gesture_speed_is_the_same_whatever_shape_the_video_is():
     wide = HandsAnalyser(aspect=1.78).analyse_detail(one_window(hand_frames(1.78, positions)))
     squarish = HandsAnalyser(aspect=1.00).analyse_detail(one_window(hand_frames(1.00, positions)))
     assert abs(wide.gesture_raw - squarish.gesture_raw) < 1e-9
+
+
+def test_head_turn_reads_zero_when_facing_the_camera():
+    analyser = PoseAnalyser(aspect=1.78)
+    detail = analyser.analyse_detail(pose_window([frame(0.0, pose=build_pose(1.78))]))
+    assert detail.head_turn < 1e-9
+
+
+def test_a_turned_head_withholds_the_lean_score_but_keeps_the_others():
+    """The lean is taken from the nose, so a turned head and a leaning body produce the
+    same reading and cannot be told apart. When the head is turned the lean is therefore
+    not reported, rather than reported wrongly. Levelness and sway are unaffected, because
+    neither of them uses the nose.
+    """
+    turned = build_pose(1.78, lean_x=0.15, head_turn=0.8)
+    detail = PoseAnalyser(aspect=1.78).analyse_detail(pose_window([frame(0.0, pose=turned)]))
+    assert detail.head_turn > 0.30
+    assert detail.uprightness is None
+    assert detail.lean_degrees is not None  # still reported, so the reason stays visible
+    assert detail.levelness is not None
+    assert detail.score is not None  # scored from the measurements that remain valid
+
+
+def test_a_leaning_body_still_scores_when_the_head_faces_the_camera():
+    """The gate must not silence real posture problems, only ambiguous ones."""
+    leaning = [frame(t / 6.0, pose=build_pose(1.78, lean_x=0.15, head_turn=0.0)) for t in range(6)]
+    detail = PoseAnalyser(aspect=1.78).analyse_detail(pose_window(leaning))
+    assert detail.head_turn < 0.30
+    assert detail.uprightness == 0.0
