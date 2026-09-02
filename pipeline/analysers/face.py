@@ -45,6 +45,8 @@ LIP_INNER_UPPER = 13
 LIP_INNER_LOWER = 14
 BROW_RIGHT = 105  # the upper ridge of the eyebrow
 BROW_LEFT = 334
+MOUTH_CORNER_RIGHT = 61
+MOUTH_CORNER_LEFT = 291
 CHEEK_RIGHT = 234  # cheek to cheek is the face-width reference
 CHEEK_LEFT = 454
 
@@ -73,6 +75,10 @@ class FaceWindow:
     liveliness_raw: float | None
     stability_raw: float | None
     face_width: float | None
+    #: mouth width over face width. Not scored. The smile rule compares it against the
+    #: person's own median for the session, because resting mouth widths differ and a
+    #: fixed threshold would simply favour some faces over others.
+    mouth_width: float | None
 
 
 class FaceAnalyser(Analyser):
@@ -161,6 +167,15 @@ class FaceAnalyser(Analyser):
         """
         return abs(lm[LIP_INNER_UPPER][1] - lm[LIP_INNER_LOWER][1]) / face_width
 
+    def _mouth_width(self, lm: list, face_width: float) -> float:
+        """Corner-to-corner mouth width, divided by face width.
+
+        Both measurements run across the face, so this one is unaffected by the frame
+        shape either way, but it goes through the same corrected face width as everything
+        else so that all the face numbers stay on one footing.
+        """
+        return dist(lm[MOUTH_CORNER_RIGHT], lm[MOUTH_CORNER_LEFT], self.aspect) / face_width
+
     def _eyebrow_height(self, lm: list, face_width: float) -> float:
         """Average gap from eyebrow to eye across both sides, divided by face width."""
         right = abs(lm[BROW_RIGHT][1] - lm[EYE_OUTER_RIGHT][1])
@@ -168,6 +183,29 @@ class FaceAnalyser(Analyser):
         return (right + left) / (2.0 * face_width)
 
     # ---------------------------------------------------------- putting a window together
+
+    def _nothing_seen(self, window: Window, visibility: float) -> "FaceWindow":
+        """A window with no usable face in it.
+
+        Reporting no score is the honest answer. A zero would read as poor body language
+        when the truth is that nothing could be measured, so fusion leaves the channel out
+        and the dashboard shows a gap rather than a number nobody can justify.
+        """
+        return FaceWindow(
+            index=window.index,
+            t_start_s=window.t_start_s,
+            t_end_s=window.t_end_s,
+            visibility=visibility,
+            score=None,
+            facing=None,
+            liveliness=None,
+            stability=None,
+            asymmetry=None,
+            liveliness_raw=None,
+            stability_raw=None,
+            face_width=None,
+            mouth_width=None,
+        )
 
     def analyse_detail(self, window: Window) -> FaceWindow:
         """Score one window and hand back the full working-out."""
@@ -178,22 +216,10 @@ class FaceAnalyser(Analyser):
             # No face was found anywhere in this window. Report no score rather than
             # making one up. Fusion will leave the channel out, and the dashboard shows
             # an honest gap in the timeline instead of a number nobody can justify.
-            return FaceWindow(
-                index=window.index,
-                t_start_s=window.t_start_s,
-                t_end_s=window.t_end_s,
-                visibility=visibility,
-                score=None,
-                facing=None,
-                liveliness=None,
-                stability=None,
-                asymmetry=None,
-                liveliness_raw=None,
-                stability_raw=None,
-                face_width=None,
-            )
+            return self._nothing_seen(window, visibility)
 
         asymmetries: list[float] = []
+        mouths: list[float] = []
         widths: list[float] = []
         noses: list[list[float]] = []
 
@@ -205,6 +231,7 @@ class FaceAnalyser(Analyser):
 
             widths.append(face_width)
             asymmetries.append(self._asymmetry(lm))
+            mouths.append(self._mouth_width(lm, face_width))
             noses.append(lm[NOSE_TIP])
             self._recent.append(
                 (
@@ -221,20 +248,7 @@ class FaceAnalyser(Analyser):
 
         # A face was detected but every frame of it was unusable.
         if not widths:
-            return FaceWindow(
-                index=window.index,
-                t_start_s=window.t_start_s,
-                t_end_s=window.t_end_s,
-                visibility=visibility,
-                score=None,
-                facing=None,
-                liveliness=None,
-                stability=None,
-                asymmetry=None,
-                liveliness_raw=None,
-                stability_raw=None,
-                face_width=None,
-            )
+            return self._nothing_seen(window, visibility)
 
         mean_width = stats.fmean(widths)
 
@@ -279,6 +293,7 @@ class FaceAnalyser(Analyser):
             liveliness_raw=liveliness_raw,
             stability_raw=stability_raw,
             face_width=mean_width,
+            mouth_width=stats.median(mouths) if mouths else None,
         )
 
     def analyse(self, window: Window) -> AnalysisResult:
