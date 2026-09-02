@@ -1,12 +1,41 @@
-"""Turning the run of scores into something worth reading.
+"""Turning the run of scores into things worth saying to the person who recorded the video.
 
-Two separate jobs live here. `score_session` boils the whole video down to an overall
-score and one score per channel. `derive_events` looks for stretches where something
-noticeable was happening and turns each one into a timestamped comment the user can jump
-straight to in their video.
+Two steps, kept apart on purpose.
+
+  rules.py   decides WHAT is worth saying, and when it happened
+  scorer.py  reduces the whole session to the headline numbers and a short summary
+
+The separation matters more than it looks. The rules own every judgement: which behaviours
+count, how long they must last, and what is said about them. Anything added later that
+rewords the output can only ever reword what the rules already found, so it cannot invent a
+behaviour, move a timestamp, or reach a conclusion of its own.
 """
 
-from .scorer import score_session
-from .rules import derive_events
+from .rules import (
+    Event,
+    Recommendation,
+    all_events,
+    clock,
+    face_events,
+    hand_events,
+    pose_events,
+    recommendations,
+    sustained_intervals,
+)
+from .scorer import SessionFacts, SessionSummary, summarise, summary_sentence
 
-__all__ = ["score_session", "derive_events"]
+__all__ = [
+    "Event",
+    "Recommendation",
+    "all_events",
+    "clock",
+    "face_events",
+    "hand_events",
+    "pose_events",
+    "recommendations",
+    "sustained_intervals",
+    "SessionFacts",
+    "SessionSummary",
+    "summarise",
+    "summary_sentence",
+]
