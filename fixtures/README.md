@@ -15,8 +15,20 @@ Use self-recorded clips and/or licensed public datasets. Record consent for any 
 
 ## Current corpus
 
-Detection rates measured at the default 6 fps analysis rate. `pose` is 100 % on all three, so the
-pose channel is well covered; the gap is **hands**.
+Eight clips, in two groups. Detection rates measured at the default 6 fps analysis rate, re-measured
+2 Sep 2026.
+
+**The five calibration takes** (portrait, purpose-recorded, one behaviour varied per take):
+
+| Clip                 | Resolution | Duration | face    | pose    | L hand | R hand |
+| -------------------- | ---------- | -------- | ------- | ------- | ------ | ------ |
+| `calib-baseline.mp4` | 720×1280   | 139.4 s  | 100.0 % | 100.0 % | 96.0 % | 95.1 % |
+| `calib-still.mp4`    | 720×1280   | 101.3 s  | 100.0 % | 100.0 % | 99.0 % | 98.8 % |
+| `calib-animated.mp4` | 720×1280   | 116.0 s  | 100.0 % | 100.0 % | 96.8 % | 92.7 % |
+| `calib-posture.mp4`  | 720×1280   | 125.7 s  | 100.0 % | 100.0 % | 71.2 % | 65.9 % |
+| `calib-restless.mp4` | 720×1280   | 104.7 s  | 97.9 %  | 100.0 % | 79.8 % | 79.5 % |
+
+**The three earlier clips**, kept because their poor framing is useful degraded-footage material:
 
 | Clip                                     | Resolution | Duration | face   | pose  | L hand | R hand |
 | ---------------------------------------- | ---------- | -------- | ------ | ----- | ------ | ------ |
@@ -24,17 +36,29 @@ pose channel is well covered; the gap is **hands**.
 | `Video Project.mp4`                      | 1280×720   | 72.4 s   | 100 %  | 100 % | 0.0 %  | 0.5 %  |
 | `Screen Recording 2026-07-24 115049.mp4` | 580×530    | 91.1 s   | 99.6 % | 100 % | 4.0 %  | 4.0 %  |
 
-Two of these are **naturally hands-degraded** — head-and-shoulders webcam framing where hands are
-almost never in shot. That is not a defect: it is free degraded-footage material for the evaluation,
-and it shows the "hands leave the frame" scenario occurs in ordinary interview recordings without
-needing to be staged. Keep both.
+Two of the older three are **naturally hands-degraded** — head-and-shoulders webcam framing where hands
+are almost never in shot. That is not a defect: it is free degraded-footage material for the evaluation,
+and it shows the "hands leave the frame" scenario occurs in ordinary interview recordings without needing
+to be staged. Keep both.
 
-The consequence is that **only `Medium quality.mp4` exercises the hands channel at all**, so the hand
-metrics currently have a single clip to calibrate against.
+> **Superseded note, 2 Sep 2026.** This section previously said that _only_ `Medium quality.mp4` exercised
+> the hands channel, so the hand metrics had a single clip to calibrate against. That was true of the
+> three-clip corpus and is no longer true: every one of the five takes shows hands in 66 % of frames or
+> more. `Medium quality.mp4` also turned out to have the subject's head genuinely turned away throughout,
+> which is why its face detection is 43.8 %; it belongs in the evaluation corpus rather than the
+> calibration set.
+
+**What the corpus still lacks: anybody other than the author.** Every threshold in the project is set
+from one person's body, in one room, with one camera. That is a generalisation question, not a
+calibration one, and it belongs with the evaluation work rather than with threshold setting.
 
 ---
 
-## Wanted: a five-take calibration shoot
+## Delivered 2 Sep 2026 — the five-take calibration shoot
+
+> The five takes described below **were recorded and supplied**, and the calibration was carried out
+> against them. The brief is kept as written because it records what was asked for and why, which is what
+> makes the resulting numbers reproducible. Read it as a record, not as an outstanding request.
 
 **These are calibration clips, not evaluation clips.** Their only job is to fix the numbers inside the
 metrics — where "flat expression" ends and "animated" begins, and so on. The evaluation corpus is a
