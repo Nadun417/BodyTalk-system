@@ -12,7 +12,12 @@ is how the application knows what to show on the progress screen:
     {"type": "result", "fusionMode": "...", "overallScore": ..., "windows": [...], "events": [...]}
     {"type": "error", "message": "..."}
 
-There are two modes that exist to make development practical.
+`--validate` checks whether a chosen file can be analysed at all and stops there. It runs in
+a couple of seconds rather than minutes, which is the entire point: it is what the upload
+screen calls the moment somebody picks a file, so that an unusable video is refused straight
+away instead of after a long wait.
+
+Two further modes exist to make development practical.
 
 `--selftest` makes up plausible numbers instead of analysing anything, using nothing beyond
 Python's own libraries. That means the whole path from this script through to the dashboard
@@ -129,6 +134,28 @@ def run_selftest(session_id: int, fusion_mode: str) -> dict:
         "windows": windows,
         "events": events,
     }
+
+
+def run_validate(args: argparse.Namespace) -> dict:
+    """Check an uploaded file is worth analysing and report back in a second or two.
+
+    This is the one mode that is expected to say no. It returns normally either way, with
+    `ok` telling the application which happened, because a video the user should not have
+    chosen is an ordinary outcome rather than a failure of this program. Errors are kept for
+    things that actually went wrong.
+
+    The import sits inside the function so that neither the self-test nor anything else pays
+    for loading the video library on a path that never opens a video.
+    """
+    from validation import DEFAULT_MIN_DURATION_S, as_json, validate_video
+
+    if not args.video:
+        raise ValueError("Checking a video needs --video pointing at one")
+
+    minimum = args.min_duration if args.min_duration > 0 else DEFAULT_MIN_DURATION_S
+    result = validate_video(args.video, minimum, check_person=not args.skip_person_check)
+
+    return {"type": "result", "stage": "validate", **as_json(result)}
 
 
 def run_detect_only(args: argparse.Namespace) -> dict:
@@ -278,6 +305,22 @@ def main() -> int:
         help="only pull out frames and detect landmarks, saving them to landmarks.jsonl",
     )
     parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="check a video can be analysed and stop, without analysing it",
+    )
+    parser.add_argument(
+        "--min-duration",
+        type=float,
+        default=0.0,
+        help="shortest video accepted by --validate, in seconds (0 uses the default of 60)",
+    )
+    parser.add_argument(
+        "--skip-person-check",
+        action="store_true",
+        help="with --validate, check only the file and its length, without running detection",
+    )
+    parser.add_argument(
         "--complexity",
         type=int,
         default=1,
@@ -300,6 +343,8 @@ def main() -> int:
     try:
         if args.selftest:
             result = run_selftest(args.session_id, args.fusion)
+        elif args.validate:
+            result = run_validate(args)
         elif args.detect_only:
             result = run_detect_only(args)
         else:
