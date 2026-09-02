@@ -27,7 +27,7 @@ no rule should ever be added that does.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Iterable, Sequence
 
 #: How long a gap inside an interval can be before it breaks the interval in two.
@@ -366,6 +366,9 @@ class Recommendation:
     kind: str  # "improve" | "maintain"
     title: str
     body: str
+    #: which kinds of observation this advice was built from, so a reader of the saved
+    #: result can trace a suggestion back to the events that produced it
+    basis_event_types: list[str] = field(default_factory=list)
 
 
 def recommendations(
@@ -421,6 +424,9 @@ def recommendations(
                 kind="improve",
                 title=f"Work on your {CHANNEL_LABEL.get(channel, channel)}",
                 body=f"{worst.message} {worst.suggestion}",
+                basis_event_types=sorted(
+                    {e.type for e in events if e.channel == channel and SEVERITY_WEIGHT.get(e.severity, 0)}
+                ),
             )
         )
 
