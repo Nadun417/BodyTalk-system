@@ -74,8 +74,8 @@ def run_selftest(session_id: int, fusion_mode: str) -> dict:
         }
         raw = {ch: round(random.uniform(55, 90), 1) for ch in channels}
 
-        weights = strategy.weights(visibility)
-        fused = strategy.fuse(raw, visibility)
+        combined = strategy.fuse(raw, visibility)
+        weights, fused = combined.weights, combined.score
 
         for ch in channels:
             windows.append(
@@ -85,7 +85,7 @@ def run_selftest(session_id: int, fusion_mode: str) -> dict:
                     "channel": ch,
                     "rawScore": raw[ch],
                     "visibility": visibility[ch],
-                    "weight": round(weights[ch], 3),
+                    "weight": None if weights[ch] is None else round(weights[ch], 3),
                 }
             )
         windows.append(
@@ -93,7 +93,7 @@ def run_selftest(session_id: int, fusion_mode: str) -> dict:
                 "tStartS": t0,
                 "tEndS": t1,
                 "channel": "fused",
-                "rawScore": round(fused, 1),
+                "rawScore": None if fused is None else round(fused, 1),
                 "visibility": None,
                 "weight": None,
             }

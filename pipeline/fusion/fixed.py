@@ -1,39 +1,66 @@
-"""The comparison baseline: fixed weights that ignore how visible anything was."""
+"""Giving every channel an equal say, whatever the camera actually saw.
+
+This is the comparison the adaptive method has to beat, and it has to be built properly for
+that comparison to mean anything. It is not a lesser implementation or a fallback: it is
+the control, and the whole argument rests on it being a fair one.
+
+It ignores visibility completely. That is the entire point. Whether a hand was in full view
+or half out of the frame, as long as a score came back it counts for exactly as much as the
+other channels.
+
+There is one honest subtlety worth stating plainly, because it decides what the comparison
+actually measures. When a channel produces **no score at all** there is no number to
+average, and the equal shares are redistributed among the channels that do have one.
+Without that, an absent channel would drag the result toward zero and the baseline would be
+broken arithmetic rather than a fair alternative, which would make it easy to beat and
+worthless as evidence.
+
+So the baseline is naive about *reliability*, not about *availability*. Both methods cope
+with a channel that is missing entirely. They differ over a channel that is present but
+poorly seen, where this one keeps trusting it at full strength and the adaptive one turns it
+down. That is where any difference between them comes from, and it is the right place for
+it to come from.
+"""
 
 from __future__ import annotations
 
-from .base import FusionStrategy
+from .base import FusionResult, FusionStrategy
 
 
 class FixedWeightFusion(FusionStrategy):
-    """Gives every channel the same say, no matter what the camera could see.
+    """Equal weighting, or any other fixed split passed in.
 
-    This exists to be compared against, not because it is the better method.
-    Claiming that adaptive weighting helps is only worth anything if there is
-    something to measure it against, so the same pipeline runs a second time
-    with the weighting logic swapped out for this, and the two sets of results
-    are put side by side.
-
-    By default each channel gets an equal share. With three channels that is a
-    third each. If the hands are out of shot for a minute, they still get their
-    third, and that is the point: the score for that minute is partly built on
-    evidence that was never actually recorded. Showing that happening is what
-    makes the case for the adaptive version.
-
-    `weights_override` lets a different fixed split be passed in, for instance
-    if a later experiment wants to try weightings taken from published work
-    rather than an even split. Nothing uses it yet.
+    Holds nothing between windows: the weights depend on nothing that happened earlier,
+    which is exactly what makes it the control.
     """
 
+    name = "fixed"
+
     def __init__(self, weights_override: dict[str, float] | None = None) -> None:
+        #: an alternative fixed split, for a second baseline drawn from the literature
         self._override = weights_override
 
-    def weights(self, visibility: dict[str, float]) -> dict[str, float]:
+    def fuse(
+        self,
+        scores: dict[str, float | None],
+        visibility: dict[str, float],
+    ) -> FusionResult:
+        channels = list(scores)
+        present = [channel for channel in channels if scores.get(channel) is not None]
+
+        if not present:
+            return FusionResult(
+                score=None,
+                weights={channel: None for channel in channels},
+            )
+
         if self._override:
-            return dict(self._override)
-        # Note that `visibility` is accepted and then deliberately not read.
-        # Only the number of channels matters here. Keeping the argument means
-        # this class still fits the shared interface and can be swapped in for
-        # the adaptive version without anything else changing.
-        n = len(visibility) or 1
-        return {ch: 1.0 / n for ch in visibility}
+            shares = {channel: self._override.get(channel, 0.0) for channel in present}
+            total = sum(shares.values()) or 1.0
+            weights = {channel: share / total for channel, share in shares.items()}
+        else:
+            weights = {channel: 1.0 / len(present) for channel in present}
+
+        full = {channel: weights.get(channel, 0.0) for channel in channels}
+        score = sum(full[channel] * scores[channel] for channel in present)
+        return FusionResult(score=score, weights=full)

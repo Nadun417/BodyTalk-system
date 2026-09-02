@@ -1,50 +1,63 @@
-"""The shared interface that both ways of combining channel scores must follow.
+"""The interface both ways of combining channel scores share.
 
-BodyTalk analyses three things separately: the face, the body pose and the hands.
-Each one produces its own score for a slice of the video. Something then has to
-turn those three numbers into one. There are two ways of doing that in this
-project, and the whole point of the comparison is that they can be swapped for
-one another without changing anything else in the pipeline.
+This is where the project earns its keep. Everything before this point measures things;
+this is the part that decides how much each measurement counts. There are two ways of
+doing it and they are interchangeable, so a video can be analysed twice with nothing
+different between the runs except which of these objects was used. Any difference in the
+results is therefore attributable to the weighting method and to nothing else, which is
+what makes the comparison worth reporting at all.
 
-Keeping them behind one interface is what makes the comparison fair. When the
-only thing that differs between two runs is which class is plugged in here, any
-difference in the results has to come from the weighting method itself, not from
-some other part of the code having changed as well.
+One call, not two. An earlier version offered the weights and the combined score as
+separate methods, which cannot work here: the adaptive strategy carries a running average
+from one window to the next, so asking it for the weights and then asking it to combine
+would advance that average twice and quietly corrupt every window after the first. A
+single call returning both removes the possibility.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+
+
+@dataclass
+class FusionResult:
+    """One window combined, together with the working-out behind it.
+
+    The weights are not a debugging extra. They are the record of how much each channel
+    was allowed to influence the result, they are saved for every window, and they are
+    what the weight-over-time chart draws. Without them the comparison would be an
+    assertion rather than a demonstration.
+    """
+
+    score: float | None
+    weights: dict[str, float | None]
+    #: what the adaptive strategy smoothed the visibility to; empty for fixed weighting
+    smoothed_visibility: dict[str, float] = field(default_factory=dict)
 
 
 class FusionStrategy(ABC):
-    """Combines the per-channel scores for one analysis window into a single score.
+    """Combines the per-channel scores for one window into a single score.
 
-    Both arguments are dictionaries keyed by channel name, normally
-    "face", "pose" and "hands":
-
-      scores      how well that channel scored, 0 to 100
-      visibility  how clearly the camera could see that channel, 0 to 1
-
-    Subclasses only have to implement `weights`. The `fuse` method below is the
-    same for every strategy, so it is written once here.
-
-    `weights` is deliberately a public method rather than something hidden
-    inside `fuse`. The weight each channel was given has to be saved for every
-    window, because it is what the weight-over-time chart is drawn from and what
-    the evaluation compares. Working it out again afterwards would be guesswork.
+    Windows arrive in order, one at a time, because a strategy is allowed to remember what
+    came before. Analysing a second video means either a fresh object or a call to
+    `reset()`, otherwise the end of one recording bleeds into the start of the next.
     """
 
-    @abstractmethod
-    def weights(self, visibility: dict[str, float]) -> dict[str, float]:
-        """Work out how much each channel should count for.
+    #: the name stored on the session, so a saved result says how it was produced
+    name: str
 
-        The returned weights should add up to 1 across the channels that are
-        present, so the fused score stays on the same 0 to 100 scale as the
-        channel scores that went into it.
+    @abstractmethod
+    def fuse(
+        self,
+        scores: dict[str, float | None],
+        visibility: dict[str, float],
+    ) -> FusionResult:
+        """Combine one window.
+
+        A channel whose score is None could not be measured at all in this window. It
+        takes no part in the result, whichever strategy is running.
         """
 
-    def fuse(self, scores: dict[str, float], visibility: dict[str, float]) -> float:
-        """Multiply each channel's score by its weight and add the results together."""
-        w = self.weights(visibility)
-        return sum(w.get(ch, 0.0) * scores.get(ch, 0.0) for ch in scores)
+    def reset(self) -> None:
+        """Forget anything carried between windows. Called between videos."""

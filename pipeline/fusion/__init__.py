@@ -13,9 +13,9 @@ results can be put down to the weighting method rather than to some other part
 of the code behaving differently.
 """
 
-from .base import FusionStrategy
+from .base import FusionResult, FusionStrategy
 from .adaptive import AdaptiveFusion
 from .fixed import FixedWeightFusion
 from .factory import make_strategy
 
-__all__ = ["FusionStrategy", "AdaptiveFusion", "FixedWeightFusion", "make_strategy"]
+__all__ = ["FusionResult", "FusionStrategy", "AdaptiveFusion", "FixedWeightFusion", "make_strategy"]
