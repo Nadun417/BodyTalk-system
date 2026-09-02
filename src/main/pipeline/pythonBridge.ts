@@ -3,7 +3,7 @@ import { createInterface } from 'readline'
 import { join } from 'path'
 import { existsSync } from 'fs'
 import { app } from 'electron'
-import type { FusionMode, PipelineResult, ProgressUpdate } from '@shared/types'
+import type { FusionMode, PipelineResult, ProgressUpdate, VideoValidation } from '@shared/types'
 
 /**
  * Starting the Python analysis program and listening to what it says back.
@@ -40,6 +40,82 @@ function pipelineDir(): string {
 function pythonExecutable(): string {
   const venv = join(pipelineDir(), '.venv', 'Scripts', 'python.exe')
   return existsSync(venv) ? venv : 'python'
+}
+
+/**
+ * How long to wait for the upload check before giving up on it.
+ *
+ * It normally finishes in two or three seconds. The limit exists so that a Python process
+ * which somehow hangs cannot leave the user staring at a screen that never comes back. If
+ * it is ever hit, the file is not refused: a check that failed to run says nothing at all
+ * about the video, and refusing on those grounds would block a perfectly good recording.
+ */
+const VALIDATE_TIMEOUT_MS = 60_000
+
+/**
+ * Ask Python whether a chosen video can be analysed.
+ *
+ * Only Python can answer this. It is the side with the video library and the detector, so
+ * it is the only side that can open the file, read how long it is and see whether anybody
+ * is in it. Doing the same work here would mean shipping a second copy of a video decoder
+ * inside the app for no benefit.
+ *
+ * This never rejects because a video was refused. A refusal is an ordinary answer and comes
+ * back as `ok: false` with a reason to show the user. The promise only rejects if the check
+ * could not be carried out at all, and the caller treats that as "unknown", not as "bad".
+ */
+export function validateVideoFile(
+  videoPath: string,
+  minDurationS: number
+): Promise<VideoValidation> {
+  return new Promise((resolve, reject) => {
+    const args = [
+      'run.py',
+      '--validate',
+      '--video',
+      videoPath,
+      '--min-duration',
+      String(minDurationS)
+    ]
+    const child = spawn(pythonExecutable(), args, { cwd: pipelineDir() })
+
+    let validation: VideoValidation | null = null
+    let errorMsg: string | null = null
+    const stderr: string[] = []
+
+    const timer = setTimeout(() => {
+      errorMsg = 'The video check took too long and was stopped.'
+      child.kill()
+    }, VALIDATE_TIMEOUT_MS)
+
+    const rl = createInterface({ input: child.stdout })
+    rl.on('line', (line) => {
+      const trimmed = line.trim()
+      if (!trimmed) return
+      let msg: Record<string, unknown>
+      try {
+        msg = JSON.parse(trimmed)
+      } catch {
+        return // MediaPipe writes its own notices to the console; they are not our messages
+      }
+      if (msg.type === 'result') validation = msg as unknown as VideoValidation
+      if (msg.type === 'error') errorMsg = String(msg.message ?? 'Unknown validation error')
+    })
+
+    child.stderr.on('data', (d) => stderr.push(d.toString()))
+
+    child.on('error', (err) => {
+      clearTimeout(timer)
+      reject(new Error(`Could not start the video check: ${err.message}`))
+    })
+
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      if (validation) resolve(validation)
+      else if (errorMsg) reject(new Error(errorMsg))
+      else reject(new Error(`The video check failed (exit ${code}): ${stderr.join('')}`))
+    })
+  })
 }
 
 export interface RunPipelineOptions {

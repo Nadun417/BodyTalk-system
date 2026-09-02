@@ -7,21 +7,56 @@ import {
   type CreateSessionInput
 } from '../db/sessionRepo'
 import { ensureSessionDir, removeSessionDir, resultsPath } from '../fs/storage'
-import { runPipeline, cancelPipeline } from '../pipeline/pythonBridge'
+import { runPipeline, cancelPipeline, validateVideoFile } from '../pipeline/pythonBridge'
 import type { FusionMode, PipelineResult, ProgressUpdate, VideoValidation } from '@shared/types'
 
 /**
  * Check whether an uploaded video is worth analysing, before spending minutes on it.
  *
- * Currently accepts everything. The real checks are written later: that the file actually
- * opens, that it is long enough to show sustained behaviour rather than a moment, and that
- * somebody is visible in the opening seconds. Catching those up front saves the user
- * waiting through a long analysis only to be told at the end that it was never going to work.
+ * The checking is done by the Python side, which is the only part of the app that can open
+ * a video at all. It looks at whether the file decodes, whether it is long enough for there
+ * to be anything worth saying about it, and whether anybody is actually in it. It takes a
+ * couple of seconds against several minutes for a full analysis, which is the whole reason
+ * it happens first.
+ *
+ * If the check cannot be run at all, the video is allowed through. That looks like the wrong
+ * way round for a validation step, but refusing a file because a check failed would mean
+ * blocking a recording that is probably fine on the strength of a problem elsewhere. The
+ * analysis itself will fail clearly enough if the file really is unusable, and this way the
+ * app is never made unusable by its own safeguard.
  */
-export function validateVideo(_videoPath: string, _minDurationS: number): VideoValidation {
-  // Still to settle: which video formats to accept, an upper size limit, and whether the
-  // length is read using the pipeline itself or a separate tool.
-  return { ok: true }
+export async function validateVideo(
+  videoPath: string,
+  minDurationS: number
+): Promise<VideoValidation> {
+  try {
+    return await validateVideoFile(videoPath, minDurationS)
+  } catch (err) {
+    return couldNotCheck((err as Error).message)
+  }
+}
+
+/**
+ * What to report when the check could not be carried out at all.
+ *
+ * Kept as its own function because it is a decision rather than an error path, and it is the
+ * decision most likely to be second-guessed by somebody reading this later. A check that
+ * failed to run has told us nothing whatsoever about the video, and "nothing" is not
+ * evidence against it. Refusing on those grounds would mean that a Python installation
+ * problem presents itself to the user as every single one of their recordings being
+ * rejected, with nothing on screen to suggest where the real fault lies.
+ *
+ * So the video goes through, and the user is told plainly that it was not checked.
+ */
+export function couldNotCheck(message: string): VideoValidation {
+  return {
+    ok: true,
+    code: 'check_failed',
+    warnings: [
+      'This video could not be checked before analysing, so any problem with it will ' +
+        `only appear once the analysis runs. (${message})`
+    ]
+  }
 }
 
 export function createSession(input: CreateSessionInput): number {

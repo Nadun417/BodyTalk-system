@@ -7,7 +7,8 @@ import type {
   Session,
   WindowScore,
   AnalysisEvent,
-  PipelineResult
+  PipelineResult,
+  VideoValidation
 } from '@shared/types'
 
 export interface SessionDetail {
@@ -29,6 +30,9 @@ export interface SessionDetail {
  */
 const api = {
   openVideoDialog: (): Promise<string | null> => ipcRenderer.invoke(IpcChannels.openVideoDialog),
+
+  validateVideo: (videoPath: string): Promise<VideoValidation> =>
+    ipcRenderer.invoke(IpcChannels.validateVideo, videoPath),
 
   createSession: (args: {
     videoPath: string

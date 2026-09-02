@@ -88,8 +88,31 @@ export interface PipelineResult {
 }
 
 /** The answer to "is this video usable?", checked before any analysis starts. */
+/**
+ * The answer to "can this video be analysed?", produced before any analysis starts.
+ *
+ * The check itself runs in Python, because that is the only side of the app that can open a
+ * video file at all. It takes a couple of seconds, which is the point: an unusable file is
+ * refused straight away rather than after several minutes of processing.
+ */
 export interface VideoValidation {
   ok: boolean
-  durationS?: number
+  /**
+   * A short tag naming which check failed, so the interface never has to match on wording.
+   * One of: ok, not_found, unreadable, too_short, no_person. It is also set to
+   * check_failed when the check itself could not be run, which is not the same as the video
+   * being bad and is deliberately not treated as a refusal.
+   */
+  code?: string
+  /** The sentence shown to the user. Empty when the video was accepted. */
   reason?: string
+  durationS?: number
+  width?: number
+  height?: number
+  sourceFps?: number
+  /**
+   * Things worth telling the user that are not grounds for refusing the file, such as the
+   * warning that only one person is ever analysed. Shown alongside an accepted video.
+   */
+  warnings?: string[]
 }
