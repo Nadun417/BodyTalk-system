@@ -325,20 +325,10 @@ def hand_events(
         "Let some points land without a gesture. The busier ones then carry more weight.",
     )
 
-    # Eight seconds rather than five. Calibration showed this measurement separates
-    # deliberate fidgeting from ordinary talking with the hands by only about a third, so
-    # more sustained evidence is required before saying anything about it.
-    events += _events(
-        hand_windows,
-        lambda w: None if w.fidget is None else w.fidget < 40,
-        8.0,
-        "hands",
-        "fidgeting",
-        "medium",
-        lambda a, b: f"Repetitive small hand movements between {clock(a)} and {clock(b)}.",
-        "When you notice it, rest your hands loosely. A calm base beats forced stillness.",
-    )
-
+    # There is deliberately no fidgeting rule. The measurement proved too unstable to
+    # act on, and it is treated in the literature as an anxiety indicator, which is not
+    # something this project claims to detect. It is still measured, and the reasons it
+    # was dropped are recorded, but nothing is said to the user on the strength of it.
     events += _events(
         hand_windows,
         lambda w: None if w.touch_raw is None else w.touch_raw > 0.5,

@@ -300,7 +300,15 @@ class HandsAnalyser(Analyser):
             touch_raw = sum(1 for c in checked if c) / len(checked)
             touch = scale(touch_raw, self.touch_bad, self.touch_good)
 
-        parts = [p for p in (gesture, fidget, touch) if p is not None]
+        # Fidgeting is measured but deliberately excluded from the score. Three separate
+        # attempts to make it reliable failed: it originally scored motionless hands as the
+        # most restless thing in the corpus, it separates deliberate fidgeting from ordinary
+        # talking by only about a third, and after the duration was lengthened to compensate
+        # it missed the segment recorded to demonstrate it. It is also, in the literature,
+        # primarily an anxiety indicator, and this project does not make claims about how
+        # anyone was feeling. The value is still computed and reported because it is
+        # evidence for the write-up, but nothing is judged on it.
+        parts = [p for p in (gesture, touch) if p is not None]
         score = stats.fmean(parts) if parts else None
 
         return HandsWindow(
