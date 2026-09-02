@@ -10,6 +10,7 @@ import math
 
 from analysers import (
     FaceAnalyser,
+    HandsAnalyser,
     PoseAnalyser,
     dist,
     presence_rate,
@@ -18,6 +19,7 @@ from analysers import (
     window_frames,
 )
 from analysers.base import Window
+from analysers.hands import band_score
 
 # --------------------------------------------------------------------------- test helpers
 
@@ -114,9 +116,34 @@ def frame(
         "tS": t_s,
         "face": {"detected": face is not None, "landmarks": face},
         "pose": {"detected": pose is not None, "landmarks": pose},
-        "leftHand": {"detected": left_hand, "landmarks": [] if left_hand else None},
-        "rightHand": {"detected": right_hand, "landmarks": [] if right_hand else None},
+        "leftHand": _hand_slot(left_hand),
+        "rightHand": _hand_slot(right_hand),
     }
+
+
+def _hand_slot(value) -> dict:
+    """Accepts True/False for presence-only tests, or a real landmark list."""
+    if value is None or value is False:
+        return {"detected": False, "landmarks": None}
+    if value is True:
+        return {"detected": True, "landmarks": []}
+    return {"detected": True, "landmarks": value}
+
+
+HAND_POINTS = 21
+
+
+def build_hand(aspect: float, wrist_x: float, wrist_y: float, tip_x=None, tip_y=None) -> list:
+    """A synthetic 21-point hand. Fingertips sit on the wrist unless placed explicitly."""
+    def point(x_even, y):
+        return [x_even / aspect, y, 0.0]
+
+    tip_x = wrist_x if tip_x is None else tip_x
+    tip_y = wrist_y if tip_y is None else tip_y
+    lm = [point(wrist_x, wrist_y) for _ in range(HAND_POINTS)]
+    for i in (4, 8, 12, 16, 20):
+        lm[i] = point(tip_x, tip_y)
+    return lm
 
 
 def one_window(frames: list) -> Window:
@@ -456,3 +483,135 @@ def test_pose_score_is_the_mean_of_available_sub_scores():
     detail = analyser.analyse_detail(pose_window(frames))
     parts = [p for p in (detail.uprightness, detail.levelness, detail.sway) if p is not None]
     assert abs(detail.score - sum(parts) / len(parts)) < 1e-9
+
+
+# ----------------------------------------------------------------------- HandsAnalyser
+
+
+def hand_frames(aspect, positions, face=None, pose=None, tips=None):
+    """Frames with one moving hand, plus the pose and face it needs for scale."""
+    out = []
+    for i, (x, y) in enumerate(positions):
+        tip = tips[i] if tips else (None, None)
+        out.append(
+            frame(
+                i / 6.0,
+                face=face if face is not None else build_face(aspect),
+                pose=pose if pose is not None else build_pose(aspect),
+                left_hand=build_hand(aspect, x, y, tip[0], tip[1]),
+            )
+        )
+    return out
+
+
+def test_band_score_rewards_the_middle_and_penalises_both_extremes():
+    assert band_score(0.3, 0.05, 0.15, 0.7, 1.2) == 100.0  # comfortably inside
+    assert band_score(0.01, 0.05, 0.15, 0.7, 1.2) == 40.0  # far too still
+    assert band_score(2.0, 0.05, 0.15, 0.7, 1.2) == 40.0  # far too much
+    # and it slides rather than stepping between those
+    assert 40.0 < band_score(0.1, 0.05, 0.15, 0.7, 1.2) < 100.0
+    assert 40.0 < band_score(0.9, 0.05, 0.15, 0.7, 1.2) < 100.0
+
+
+def test_hands_out_of_frame_yields_no_score_not_a_zero():
+    """The hands channel abstains when the hands are not in shot.
+
+    This is the case the whole adaptive-fusion idea exists for: no score, visibility zero,
+    so fusion drops the channel instead of reading absence as bad gesturing.
+    """
+    analyser = HandsAnalyser(aspect=1.78)
+    frames = [frame(0.0, pose=build_pose(1.78)), frame(0.2, pose=build_pose(1.78))]
+    result = analyser.analyse(one_window(frames))
+    assert result["score"] is None
+    assert result["visibility"] == 0.0
+
+
+def test_visibility_is_a_half_when_only_one_hand_is_seen():
+    analyser = HandsAnalyser(aspect=1.78)
+    frames = [frame(0.0, pose=build_pose(1.78), left_hand=build_hand(1.78, 0.4, 0.7))]
+    detail = analyser.analyse_detail(one_window(frames))
+    assert detail.visibility == 0.5
+
+
+def test_motionless_hands_are_scored_as_too_still():
+    analyser = HandsAnalyser(aspect=1.78)
+    frames = hand_frames(1.78, [(0.4, 0.7)] * 6)
+    detail = analyser.analyse_detail(one_window(frames))
+    assert detail.gesture_raw < 0.05
+    assert detail.gesture == 40.0  # the floor, not zero
+
+
+def test_wildly_moving_hands_are_also_penalised():
+    analyser = HandsAnalyser(aspect=1.78)
+    # A wrist crossing a large distance every frame.
+    frames = hand_frames(1.78, [(0.2 + 0.25 * (i % 2), 0.7) for i in range(6)])
+    detail = analyser.analyse_detail(one_window(frames))
+    assert detail.gesture_raw > 0.85
+    assert detail.gesture == 40.0
+
+
+def test_jitter_on_a_still_hand_is_not_counted_as_fidgeting():
+    """Regression test. A motionless wrist wobbles by a pixel or two every frame, and
+    every wobble reverses direction, so without a noise floor a perfectly still hand
+    measured as the most fidgety thing in the corpus."""
+    analyser = HandsAnalyser(aspect=1.78)
+    jitter = [(0.4 + 0.0005 * (1 if i % 2 else -1), 0.7) for i in range(12)]
+    detail = analyser.analyse_detail(one_window(hand_frames(1.78, jitter)))
+    assert detail.fidget_raw == 0.0
+    assert detail.fidget == 100.0
+
+
+def test_real_small_reversals_are_counted_as_fidgeting():
+    analyser = HandsAnalyser(aspect=1.78)
+    # Steps of 0.02 across: above the 0.004 noise floor, below the 0.048 gesture cutoff
+    # (both derived from the 0.40 shoulder width of the synthetic body).
+    shuffle = [(0.4 + 0.01 * (1 if i % 2 else -1), 0.7) for i in range(12)]
+    detail = analyser.analyse_detail(one_window(hand_frames(1.78, shuffle)))
+    assert detail.fidget_raw > 0.0
+    assert detail.fidget < 100.0
+
+
+def test_fingertip_at_the_nose_registers_as_hand_to_face():
+    analyser = HandsAnalyser(aspect=1.78)
+    face = build_face(1.78)
+    nose = face[1]
+    frames = hand_frames(
+        1.78,
+        [(0.4, 0.7)] * 6,
+        face=face,
+        tips=[(nose[0] * 1.78, nose[1])] * 6,  # fingertips placed on the nose
+    )
+    detail = analyser.analyse_detail(one_window(frames))
+    assert detail.touch_raw == 1.0
+    assert detail.touch == 0.0
+
+
+def test_hand_well_away_from_the_face_does_not_register():
+    analyser = HandsAnalyser(aspect=1.78)
+    frames = hand_frames(1.78, [(0.4, 0.95)] * 6, tips=[(0.4, 0.95)] * 6)
+    detail = analyser.analyse_detail(one_window(frames))
+    assert detail.touch_raw == 0.0
+    assert detail.touch == 100.0
+
+
+def test_hand_to_face_abstains_when_the_face_was_not_detected():
+    """Not checking and checking-and-finding-nothing are different answers.
+
+    Merging them would turn missing evidence into a clean bill of health.
+    """
+    analyser = HandsAnalyser(aspect=1.78)
+    frames = [
+        frame(i / 6.0, face=None, pose=build_pose(1.78), left_hand=build_hand(1.78, 0.4, 0.7))
+        for i in range(6)
+    ]
+    detail = analyser.analyse_detail(one_window(frames))
+    assert detail.touch_raw is None
+    assert detail.touch is None
+    assert detail.score is not None  # still scored from the measurements it could make
+
+
+def test_gesture_speed_is_the_same_whatever_shape_the_video_is():
+    positions = [(0.30 + 0.04 * i, 0.7) for i in range(6)]
+    wide = HandsAnalyser(aspect=1.78).analyse_detail(one_window(hand_frames(1.78, positions)))
+    squarish = HandsAnalyser(aspect=1.00).analyse_detail(one_window(hand_frames(1.00, positions)))
+    assert abs(wide.gesture_raw - squarish.gesture_raw) < 1e-9
