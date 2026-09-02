@@ -30,19 +30,27 @@ must not be used to test thresholds that were set from them.
 | Face touches        | 1:00-1:22 | Four or five touches, each lasting about two to three seconds. |
 | Hands outside frame | 1:22-1:44 | Both hands deliberately kept outside the visible frame.        |
 
-## calib-still.mp4, calib-animated.mp4, calib-baseline.mp4
+## calib-animated.mp4
 
-No segment boundaries recorded yet.
+| Behaviour             | Range     | Notes                             |
+| --------------------- | --------- | --------------------------------- |
+| Expressive speaking   | 0:00-0:45 | Mainly facial animation.          |
+| Natural hand gestures | 0:45-1:15 | Ordinary gesturing while talking. |
+| Large hand gestures   | 1:23-1:55 | Deliberately big and busy.        |
 
-`calib-baseline.mp4` does not need any: the whole clip is one continuous behaviour, which is the
-point of it.
+The gap between 1:15 and 1:23 is an unlabelled transition and is excluded from calibration.
 
-The other two do have internal structure, and the missing boundaries matter for the hands channel:
+Both gesture ranges are needed, separately. Gesture activity is scored against a preferred band rather
+than a simple better-or-worse scale, because hands held rigidly still and hands thrown about are both
+worth mentioning, so the band needs a reference at each edge.
 
-- `calib-still.mp4` was recorded as a held-neutral face followed by motionless hands. The face half
-  is what set the flat-expression reference, and that worked because the whole clip is low-movement
-  either way.
-- `calib-animated.mp4` was recorded as expressive speech, then natural gesturing, then deliberately
-  large gesturing. **Gesture activity is scored against a preferred band rather than a simple
-  better-or-worse scale, so both the natural and the excessive stretches are needed as separate
-  references.** Without boundaries the two cannot be told apart, and the band cannot be set.
+## calib-still.mp4 and calib-baseline.mp4
+
+No segment boundaries recorded.
+
+`calib-baseline.mp4` does not need any: the whole clip is one continuous behaviour, which is the point
+of it.
+
+`calib-still.mp4` was recorded as a held-neutral face followed by motionless hands. It set the
+flat-expression reference without boundaries because the whole clip is low-movement either way, and it
+serves the same purpose for motionless hands.
