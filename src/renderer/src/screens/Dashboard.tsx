@@ -23,6 +23,16 @@ export default function Dashboard(): JSX.Element {
 
   const { session, windows, events } = detail
   const channels: Channel[] = ['face', 'pose', 'hands']
+
+  /**
+   * How many stretches of video were actually scored.
+   *
+   * Not the number of rows. Each window is stored as four of them, one for each of the three
+   * channels plus the combined result, so counting rows claims four times as much analysis as
+   * happened. What makes a window one window is the moment it starts, so the distinct start
+   * times are the honest count.
+   */
+  const windowCount = new Set(windows.map((w) => w.tStartS)).size
   const channelAvg = (ch: Channel): string => {
     const xs = windows.filter((w) => w.channel === ch).map((w) => w.rawScore)
     return xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length).toString() : '—'
@@ -35,7 +45,7 @@ export default function Dashboard(): JSX.Element {
       </a>
       <h1 style={{ marginTop: 12 }}>{session.videoFilename}</h1>
       <p className="subtitle">
-        {session.fusionMode} fusion · {windows.length} windows · {session.status}
+        {session.fusionMode} fusion · {windowCount} windows · {session.status}
       </p>
 
       <div className="cards">
