@@ -21,7 +21,7 @@ export default function Dashboard(): JSX.Element {
 
   if (!detail) return <div className="empty">Loading…</div>
 
-  const { session, windows, events } = detail
+  const { session, windows, events, recommendations } = detail
   const channels: ScoredChannel[] = ['face', 'pose', 'hands']
 
   /**
@@ -63,6 +63,17 @@ export default function Dashboard(): JSX.Element {
         {session.fusionMode} fusion · {windowCount} windows · {session.status}
       </p>
 
+      {/*
+        The analysis writes this sentence itself, from the same findings the rest of the
+        screen is built from. It is shown rather than re-worded here so that the summary,
+        the scores and the advice below cannot drift into telling three different stories.
+      */}
+      {session.overallSummary && (
+        <p className="summary" style={{ marginTop: -4, marginBottom: 16 }}>
+          {session.overallSummary}
+        </p>
+      )}
+
       <div className="cards">
         <div className="card">
           <div className="label">Overall</div>
@@ -93,6 +104,26 @@ export default function Dashboard(): JSX.Element {
             </div>
           </div>
         ))
+      )}
+
+      {/*
+        Advice comes last, after the observations it was drawn from, because that is the
+        order it makes sense in: here is what was seen, and here is what to do about it.
+        Every one of these was built from events in the list above rather than from any
+        judgement about the person, which is why the two sit on the same screen.
+      */}
+      {recommendations.length > 0 && (
+        <>
+          <h2 style={{ fontSize: 16, marginTop: 24 }}>What to work on next</h2>
+          {recommendations.map((r) => (
+            <div className="event" key={r.rank}>
+              <strong>{r.title}</strong>
+              <div className="label" style={{ marginTop: 4 }}>
+                {r.body}
+              </div>
+            </div>
+          ))}
+        </>
       )}
 
       <div className="row" style={{ marginTop: 20 }}>

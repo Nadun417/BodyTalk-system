@@ -72,6 +72,17 @@ h1 {
   margin: 0 0 20px;
 }
 
+/*
+  The sentence summing up a session. Set a little larger than the surrounding text because
+  it is the first thing worth reading on the results screen, and kept to a comfortable
+  reading width so it stays a sentence rather than stretching across the whole window.
+*/
+.summary {
+  font-size: 15px;
+  line-height: 1.5;
+  max-width: 68ch;
+}
+
 button {
   font: inherit;
   border: 1px solid var(--border);

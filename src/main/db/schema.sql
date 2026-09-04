@@ -28,6 +28,15 @@ CREATE TABLE IF NOT EXISTS sessions (
   face_score       REAL,
   pose_score       REAL,
   hands_score      REAL,
+  -- The sentence shown at the top of the results, written by the analysis from what it
+  -- actually found. Kept here rather than rebuilt on screen for the same reason as the
+  -- scores above: it should say the same thing everywhere it appears.
+  overall_summary  TEXT,
+  -- Whether that sentence was assembled from fixed wording or reworded by a language model.
+  -- Always 'template' at the moment. It exists so that any piece of text in a finished
+  -- report can be traced back to how it was produced, which matters because the model is
+  -- only ever allowed to reword findings, never to make them.
+  summary_phrasing TEXT,
   status           TEXT NOT NULL DEFAULT 'pending'
 );
 
@@ -51,7 +60,29 @@ CREATE TABLE IF NOT EXISTS events (
   type        TEXT NOT NULL,
   severity    TEXT NOT NULL,
   message     TEXT NOT NULL,
-  suggestion  TEXT
+  suggestion  TEXT,
+  phrasing    TEXT
+);
+
+-- What the user is advised to do next, worked out from the events above.
+--
+-- Its own table rather than columns on sessions, because there is a list of these per
+-- session and the number varies, which is the same shape as events and stored the same way.
+--
+-- Nothing here is a new finding. Each row is built from events that were actually detected,
+-- and basis_event_types records which ones, so any piece of advice can be traced back to the
+-- observation behind it. That trail is what keeps the advice tied to what was seen rather
+-- than to an opinion about the person.
+CREATE TABLE IF NOT EXISTS recommendations (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id        INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  rank              INTEGER NOT NULL,
+  channel           TEXT NOT NULL,
+  kind              TEXT NOT NULL,
+  title             TEXT NOT NULL,
+  body              TEXT NOT NULL,
+  basis_event_types TEXT,
+  phrasing          TEXT
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -61,3 +92,4 @@ CREATE TABLE IF NOT EXISTS settings (
 
 CREATE INDEX IF NOT EXISTS idx_window_scores_session ON window_scores(session_id);
 CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
+CREATE INDEX IF NOT EXISTS idx_recommendations_session ON recommendations(session_id);
