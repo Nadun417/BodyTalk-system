@@ -118,6 +118,35 @@ export function validateVideoFile(
   })
 }
 
+/**
+ * Turn a failure from the Python side into something a person can act on.
+ *
+ * Most of what comes back is already fit to read, because the pipeline reports its own
+ * problems in plain words. One case is not: when the analysis software itself is not present
+ * on the machine, Python fails with a message like "No module named 'cv2'", which is precise,
+ * accurate and completely meaningless to somebody who just wanted feedback on their practice
+ * interview.
+ *
+ * That case is not hypothetical. The installer carries the analysis code but not the Python
+ * that runs it, so anybody who installs this without already having that set up meets exactly
+ * this. Telling them plainly what is wrong is the least it can do, and it is deliberately not
+ * promising a fix here, because how that gets installed is not yet settled.
+ */
+export function explainPythonFailure(raw: string): string {
+  const missingModule = /No module named ['"]?([\w.]+)/.exec(raw)
+  const couldNotStart = /Failed to start Python|ENOENT|is not recognized/i.test(raw)
+
+  if (missingModule || couldNotStart) {
+    return (
+      'This copy of BodyTalk cannot analyse videos, because the analysis software it needs ' +
+      'is not installed on this computer. Everything else, including opening and reading ' +
+      'sessions that were analysed elsewhere, still works.' +
+      (missingModule ? ` (The missing part is "${missingModule[1]}".)` : '')
+    )
+  }
+  return raw
+}
+
 export interface RunPipelineOptions {
   sessionId: number
   fusionMode: FusionMode
@@ -205,9 +234,11 @@ export function runPipeline(opts: RunPipelineOptions): Promise<PipelineResult> {
       if (signal === 'SIGTERM') {
         reject(new Error('cancelled'))
       } else if (errorMsg) {
-        reject(new Error(errorMsg))
+        reject(new Error(explainPythonFailure(errorMsg)))
       } else if (code !== 0) {
-        reject(new Error(`Pipeline exited with code ${code}: ${stderr.join('')}`))
+        reject(
+          new Error(explainPythonFailure(`Pipeline exited with code ${code}: ${stderr.join('')}`))
+        )
       } else if (!result) {
         reject(new Error('Pipeline produced no result.'))
       } else {
