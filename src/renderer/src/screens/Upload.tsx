@@ -20,6 +20,7 @@ export default function Upload(): JSX.Element {
   const [videoPath, setVideoPath] = useState<string | null>(null)
   const [fusionMode, setFusionMode] = useState<FusionMode>('adaptive')
   const [checking, setChecking] = useState(false)
+  const [preparing, setPreparing] = useState(false)
   const [check, setCheck] = useState<VideoValidation | null>(null)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
@@ -42,7 +43,15 @@ export default function Upload(): JSX.Element {
 
   const start = async (): Promise<void> => {
     if (!videoPath) return
-    const res = await window.bodytalk.createSession({ videoPath, fusionMode })
+    // Starting a session copies the video into it, which on a long recording takes a moment.
+    // Saying so is better than a button that looks like it was not pressed.
+    setPreparing(true)
+    let res: { sessionId?: number; error?: string }
+    try {
+      res = await window.bodytalk.createSession({ videoPath, fusionMode })
+    } finally {
+      setPreparing(false)
+    }
     if (res.error || !res.sessionId) {
       setError(res.error ?? 'Could not create session.')
       return
@@ -53,7 +62,7 @@ export default function Upload(): JSX.Element {
   }
 
   const rejected = check !== null && !check.ok
-  const canAnalyse = Boolean(videoPath) && !checking && !rejected
+  const canAnalyse = Boolean(videoPath) && !checking && !preparing && !rejected
 
   const lengthSummary =
     check?.durationS && check.durationS > 0
@@ -134,7 +143,7 @@ export default function Upload(): JSX.Element {
       )}
 
       <button className="primary" disabled={!canAnalyse} onClick={start}>
-        {checking ? 'Checking…' : 'Analyse'}
+        {checking ? 'Checking…' : preparing ? 'Preparing…' : 'Analyse'}
       </button>
     </div>
   )
