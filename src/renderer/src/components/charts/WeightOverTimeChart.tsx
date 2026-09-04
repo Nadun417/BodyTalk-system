@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, LinearScale, CategoryScale, BarElement, Tooltip, Legend } from 'chart.js'
 import type { WindowScore, ScoredChannel, FusionMode } from '@shared/types'
@@ -31,12 +32,16 @@ const BUCKETS = 14
  */
 export default function WeightOverTimeChart({
   windows,
-  fusionMode
+  fusionMode,
+  forExport
 }: {
   windows: WindowScore[]
   fusionMode: FusionMode
+  /** Drawn to be captured as a picture for the PDF rather than shown on screen. */
+  forExport?: boolean
 }): JSX.Element {
-  const theme = useChartTheme()
+  const box = useRef<HTMLDivElement>(null)
+  const theme = useChartTheme(box)
   const times = windows.map((w) => w.tStartS)
   const end = times.length ? Math.max(...times) : 0
   const width = end > 0 ? end / BUCKETS : 1
@@ -68,7 +73,7 @@ export default function WeightOverTimeChart({
   })
 
   return (
-    <div className="chart-wrap" style={{ height: 240 }}>
+    <div className="chart-wrap" ref={box} style={{ height: 240 }}>
       <Bar
         data={{
           labels: buckets.map((b) => b.label),
@@ -81,8 +86,15 @@ export default function WeightOverTimeChart({
           }))
         }}
         options={{
+          // Still sized by its container when it is being captured. Turning that off makes
+          // the canvas fall back to a default of 300 by 150, which then gets blown up to fill
+          // the width of a page and takes every label with it.
           responsive: true,
           maintainAspectRatio: false,
+          // Capturing a chart that is still animating catches it half drawn, and drawing it
+          // at twice the density keeps the lines and labels crisp on paper.
+          animation: forExport ? false : undefined,
+          devicePixelRatio: forExport ? 2 : undefined,
           scales: {
             x: {
               stacked: true,

@@ -71,8 +71,18 @@ const api = {
   deleteSession: (id: number): Promise<DeleteOutcome> =>
     ipcRenderer.invoke(IpcChannels.deleteSession, id),
 
-  exportReport: (id: number): Promise<{ cancelled?: boolean; error?: string }> =>
-    ipcRenderer.invoke(IpcChannels.exportReport, id),
+  /**
+   * Hand a finished report over to be saved.
+   *
+   * The bytes travel from the interface to the backend, which is the opposite direction to
+   * most of these, because the interface is the side that can build a PDF and the backend is
+   * the only side that can write a file.
+   */
+  exportReport: (
+    id: number,
+    bytes: Uint8Array
+  ): Promise<{ cancelled?: boolean; error?: string; savedTo?: string }> =>
+    ipcRenderer.invoke(IpcChannels.exportReport, id, bytes),
 
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke(IpcChannels.getSettings),
 
