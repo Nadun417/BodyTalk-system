@@ -20,6 +20,14 @@ CREATE TABLE IF NOT EXISTS sessions (
   analysis_fps     REAL,
   fusion_mode      TEXT NOT NULL CHECK (fusion_mode IN ('adaptive', 'fixed')),
   overall_score    REAL,
+  -- The score for each channel, exactly as the analysis calculated it. Stored rather than
+  -- worked out again from window_scores, because a window where a channel could not be
+  -- measured has no score and has to be left out of the average instead of counted as zero.
+  -- Getting that wrong makes a channel that was out of shot look like a channel that did
+  -- badly, and that mistake was made once already.
+  face_score       REAL,
+  pose_score       REAL,
+  hands_score      REAL,
   status           TEXT NOT NULL DEFAULT 'pending'
 );
 

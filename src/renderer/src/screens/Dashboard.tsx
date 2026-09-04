@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { Channel } from '@shared/types'
+import type { ScoredChannel } from '@shared/types'
 import type { SessionDetail } from '../../../preload/index'
 import WeightOverTimeChart from '../components/charts/WeightOverTimeChart'
 
@@ -22,7 +22,7 @@ export default function Dashboard(): JSX.Element {
   if (!detail) return <div className="empty">Loading…</div>
 
   const { session, windows, events } = detail
-  const channels: Channel[] = ['face', 'pose', 'hands']
+  const channels: ScoredChannel[] = ['face', 'pose', 'hands']
 
   /**
    * How many stretches of video were actually scored.
@@ -33,9 +33,24 @@ export default function Dashboard(): JSX.Element {
    * times are the honest count.
    */
   const windowCount = new Set(windows.map((w) => w.tStartS)).size
-  const channelAvg = (ch: Channel): string => {
-    const xs = windows.filter((w) => w.channel === ch).map((w) => w.rawScore)
-    return xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length).toString() : '—'
+
+  /**
+   * The score for one channel, as the analysis worked it out.
+   *
+   * This used to be averaged here from the per-window scores, and it was wrong. A window
+   * where the channel could not be measured has no score at all, and adding those in as
+   * though they were zeros pulled the figure down. On a real run it reported 92 for hands
+   * where the analysis had calculated 93, and a channel genuinely out of shot for a longer
+   * stretch would have been understated far more heavily. Since that is precisely the case
+   * the weighting exists to handle, showing it as poor performance would have undermined
+   * the point of the whole thing.
+   *
+   * An em-dash means nothing was recorded, which is true of sessions analysed before these
+   * scores were stored.
+   */
+  const channelScore = (ch: ScoredChannel): string => {
+    const score = session.channelScores[ch]
+    return score === null || score === undefined ? '—' : score.toString()
   }
 
   return (
@@ -56,7 +71,7 @@ export default function Dashboard(): JSX.Element {
         {channels.map((ch) => (
           <div className="card" key={ch}>
             <div className="label">{ch}</div>
-            <div className="score">{channelAvg(ch)}</div>
+            <div className="score">{channelScore(ch)}</div>
           </div>
         ))}
       </div>

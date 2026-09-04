@@ -17,6 +17,9 @@ interface SessionRow {
   analysis_fps: number | null
   fusion_mode: FusionMode
   overall_score: number | null
+  face_score: number | null
+  pose_score: number | null
+  hands_score: number | null
   status: SessionStatus
 }
 
@@ -29,6 +32,14 @@ function toSession(r: SessionRow): Session {
     analysisFps: r.analysis_fps ?? 0,
     fusionMode: r.fusion_mode,
     overallScore: r.overall_score,
+    // Kept as null when there is nothing stored, rather than defaulted to a number. A
+    // session from before these were recorded has no channel scores, and the screen says so
+    // instead of showing a figure nobody calculated.
+    channelScores: {
+      face: r.face_score ?? null,
+      pose: r.pose_score ?? null,
+      hands: r.hands_score ?? null
+    },
     status: r.status
   }
 }
@@ -113,10 +124,23 @@ export function saveResult(sessionId: number, result: PipelineResult): void {
         [sessionId, e.tStartS, e.tEndS, e.channel, e.type, e.severity, e.message, e.suggestion]
       )
     }
-    dbRun(`UPDATE sessions SET overall_score = ?, status = 'complete' WHERE id = ?`, [
-      result.overallScore,
-      sessionId
-    ])
+    // The channel scores come from the analysis rather than being worked out here. The
+    // self-test does not produce them, so they can legitimately be absent, and absent is
+    // stored as nothing rather than as zero.
+    const channels = result.channelScores
+    dbRun(
+      `UPDATE sessions
+          SET overall_score = ?, face_score = ?, pose_score = ?, hands_score = ?,
+              status = 'complete'
+        WHERE id = ?`,
+      [
+        result.overallScore,
+        channels?.face ?? null,
+        channels?.pose ?? null,
+        channels?.hands ?? null,
+        sessionId
+      ]
+    )
   })
 }
 
