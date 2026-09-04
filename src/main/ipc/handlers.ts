@@ -44,13 +44,15 @@ export function registerIpcHandlers(): void {
       const settings = getSettings()
       const validation = await validateVideo(args.videoPath, settings.minDurationS)
       if (!validation.ok) return { error: validation.reason ?? 'Invalid video' }
-      const id = createSession({
+      // Creating the session also takes its own copy of the video, which is why this waits.
+      const { id, videoCopied } = await createSession({
         videoFilename: args.videoPath.split(/[\\/]/).pop() ?? args.videoPath,
         videoDurationS: validation.durationS ?? 0,
         analysisFps: settings.analysisFps,
-        fusionMode: args.fusionMode
+        fusionMode: args.fusionMode,
+        videoPath: args.videoPath
       })
-      return { sessionId: id }
+      return { sessionId: id, videoCopied }
     }
   )
 

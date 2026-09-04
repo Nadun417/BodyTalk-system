@@ -6,7 +6,13 @@ import {
   deleteSession as repoDelete,
   type CreateSessionInput
 } from '../db/sessionRepo'
-import { ensureSessionDir, removeSessionDir, resultsPath } from '../fs/storage'
+import {
+  ensureSessionDir,
+  removeSessionDir,
+  resultsPath,
+  copyVideoIntoSession,
+  sourceVideoPath
+} from '../fs/storage'
 import { runPipeline, cancelPipeline, validateVideoFile } from '../pipeline/pythonBridge'
 import type { FusionMode, PipelineResult, ProgressUpdate, VideoValidation } from '@shared/types'
 
@@ -59,12 +65,26 @@ export function couldNotCheck(message: string): VideoValidation {
   }
 }
 
-export function createSession(input: CreateSessionInput): number {
+/**
+ * Start a session and give it its own copy of the video.
+ *
+ * The copy is what makes a session survive. Without it the session only knows where the
+ * video used to be, and someone who tidies their folders a month later finds their old
+ * results pointing at nothing. It also makes deleting a session mean what the app says it
+ * means, since the recording being removed is the one the app made rather than theirs.
+ *
+ * A failed copy does not stop the session. On a machine short of space the choice is between
+ * analysing the video from where it already is and refusing to analyse it at all, and the
+ * first is plainly better; what is lost is only the ability to reopen the session after the
+ * original moves. The caller is told, so it can say so rather than pretending.
+ */
+export async function createSession(
+  input: CreateSessionInput & { videoPath?: string }
+): Promise<{ id: number; videoCopied: boolean }> {
   const id = repoCreate(input)
   ensureSessionDir(id)
-  // Still to add: copy the user's video into the session folder, so that reopening an old
-  // session still works after they have moved or deleted the original file.
-  return id
+  const copy = input.videoPath ? await copyVideoIntoSession(id, input.videoPath) : { copied: false }
+  return { id, videoCopied: copy.copied }
 }
 
 export interface AnalyseOptions {
@@ -99,7 +119,10 @@ export async function analyse(opts: AnalyseOptions): Promise<PipelineResult> {
     const result = await runPipeline({
       sessionId: opts.sessionId,
       fusionMode: opts.fusionMode,
-      videoPath: opts.videoPath,
+      // The session's own copy is preferred over the file the user picked. It is the same
+      // recording, but it cannot be moved or renamed out from under a run that is already
+      // going, and it is the copy that will still be here when the session is reopened.
+      videoPath: sourceVideoPath(opts.sessionId) ?? opts.videoPath,
       analysisFps: opts.analysisFps,
       // Made again rather than assumed. A session created in an earlier run of the app
       // still has its row in the database, but the folder can have been cleared out from

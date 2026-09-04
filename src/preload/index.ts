@@ -40,7 +40,7 @@ const api = {
   createSession: (args: {
     videoPath: string
     fusionMode: FusionMode
-  }): Promise<{ sessionId?: number; error?: string }> =>
+  }): Promise<{ sessionId?: number; error?: string; videoCopied?: boolean }> =>
     ipcRenderer.invoke(IpcChannels.createSession, args),
 
   startAnalysis: (args: {

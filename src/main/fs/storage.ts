@@ -1,6 +1,7 @@
 import { app } from 'electron'
-import { join } from 'path'
-import { mkdirSync, existsSync, rmSync } from 'fs'
+import { join, extname } from 'path'
+import { mkdirSync, existsSync, rmSync, readdirSync } from 'fs'
+import { copyFile } from 'fs/promises'
 
 /**
  * Where everything gets stored on the user's own machine.
@@ -8,7 +9,7 @@ import { mkdirSync, existsSync, rmSync } from 'fs'
  *   %APPDATA%/BodyTalk/
  *     bodytalk.db
  *     sessions/<session id>/
- *       source.<ext>        the user's video, copied in
+ *       source.<ext>        the user's video, copied in (their original is never touched)
  *       frames/             cached frames, safe to clear
  *       landmarks.jsonl     the detected landmarks for every sampled frame
  *       results.json        the finished scores and comments
@@ -41,6 +42,51 @@ export function sessionDir(sessionId: number): string {
 
 export function resultsPath(sessionId: number): string {
   return join(sessionDir(sessionId), 'results.json')
+}
+
+/**
+ * The session's own copy of the video, if it has one.
+ *
+ * Kept as `source` plus whatever ending the original had, so the format is still obvious
+ * from the name. The ending is not known in advance, which is why this looks for the file
+ * rather than working out its name: a session recorded from a `.mov` and one from an `.mp4`
+ * both end up here.
+ *
+ * Returns nothing when there is no copy. That is a real case rather than an error. Sessions
+ * from before the video was copied in have none, and a copy can also fail on a machine that
+ * has run out of room, which is not a reason to make the session unusable.
+ */
+export function sourceVideoPath(sessionId: number): string | null {
+  const dir = sessionDir(sessionId)
+  if (!existsSync(dir)) return null
+  const match = readdirSync(dir).find((name) => name.startsWith('source.'))
+  return match ? join(dir, match) : null
+}
+
+/**
+ * Take the session's own copy of the video.
+ *
+ * Copied rather than referenced because a session has to still work months later, and by
+ * then the original may well have been renamed, moved onto a different drive or deleted. It
+ * is copied rather than moved for the obvious reason: the file belongs to the user and it is
+ * not this app's to take away.
+ *
+ * A failure here is reported rather than thrown. The likeliest cause by far is a machine
+ * short of space, and refusing to analyse a perfectly good recording because there was no
+ * room for a second copy of it would be a poor trade. The analysis can run from the original
+ * either way; what is lost is being able to reopen the session after the original moves.
+ */
+export async function copyVideoIntoSession(
+  sessionId: number,
+  videoPath: string
+): Promise<{ copied: boolean; reason?: string }> {
+  try {
+    const suffix = extname(videoPath) || '.mp4'
+    await copyFile(videoPath, join(ensureSessionDir(sessionId), `source${suffix}`))
+    return { copied: true }
+  } catch (err) {
+    return { copied: false, reason: (err as Error).message }
+  }
 }
 
 /** Make sure the top-level folders exist. Runs once when the app starts. */
