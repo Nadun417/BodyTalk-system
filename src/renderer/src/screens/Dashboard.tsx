@@ -87,7 +87,7 @@ export default function Dashboard(): JSX.Element {
         ))}
       </div>
 
-      <WeightOverTimeChart windows={windows} />
+      <WeightOverTimeChart windows={windows} fusionMode={session.fusionMode} />
 
       <h2 style={{ fontSize: 16 }}>Timestamped insights</h2>
       {events.length === 0 ? (
