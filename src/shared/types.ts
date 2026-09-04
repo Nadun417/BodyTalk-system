@@ -50,7 +50,42 @@ export interface Session {
   fusionMode: FusionMode
   overallScore: number | null
   channelScores: ChannelScores
+  /**
+   * The sentence that sums up the session, written by the analysis from what it found.
+   * Null for sessions recorded before it was stored, and for the self-test, which does not
+   * produce one.
+   */
+  overallSummary: string | null
   status: SessionStatus
+}
+
+/**
+ * How a piece of text in the results came to be worded.
+ *
+ * `template` means it was assembled from fixed wording. The intention is that a small
+ * language model can later reword these into something that reads more naturally, and this
+ * records which of the two produced any given line. That record matters: the model is only
+ * ever allowed to reword a finding the analysis already made, never to decide what the
+ * finding is, and without this there would be no way to show afterwards which was which.
+ */
+export type Phrasing = 'template' | 'model'
+
+/**
+ * One piece of advice for the user, worked out from the events that were detected.
+ *
+ * Nothing here is a fresh observation. `kind` says whether it is something to work on or
+ * something that went well and is worth keeping, and `basisEventTypes` names the detected
+ * events it was built from, so any advice on screen can be traced back to something that
+ * was actually seen in the video.
+ */
+export interface Recommendation {
+  rank: number
+  channel: Channel
+  kind: string
+  title: string
+  body: string
+  basisEventTypes: string[]
+  phrasing?: Phrasing
 }
 
 /**
@@ -85,6 +120,8 @@ export interface AnalysisEvent {
    */
   message: string
   suggestion: string
+  /** How this wording was produced. See `Phrasing`. */
+  phrasing?: Phrasing
 }
 
 /** Settings the user can change, kept between runs. */
@@ -114,8 +151,11 @@ export interface PipelineResult {
   fusionMode: FusionMode
   overallScore: number
   channelScores?: ChannelScores
+  overallSummary?: string
+  summaryPhrasing?: Phrasing
   windows: WindowScore[]
   events: AnalysisEvent[]
+  recommendations?: Recommendation[]
 }
 
 /** The answer to "is this video usable?", checked before any analysis starts. */

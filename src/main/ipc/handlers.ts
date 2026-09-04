@@ -8,7 +8,13 @@ import {
   cancelAnalysis,
   deleteSession
 } from '../services/sessionService'
-import { listSessions, getSession, getWindowScores, getEvents } from '../db/sessionRepo'
+import {
+  listSessions,
+  getSession,
+  getWindowScores,
+  getEvents,
+  getRecommendations
+} from '../db/sessionRepo'
 import { getSettings, setSettings } from '../db/settingsRepo'
 
 /** Registers every IPC handler. The renderer reaches the backend through these only. */
@@ -77,7 +83,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IpcChannels.getSession, (_e, id: number) => {
     const session = getSession(id)
     if (!session) return null
-    return { session, windows: getWindowScores(id), events: getEvents(id) }
+    return {
+      session,
+      windows: getWindowScores(id),
+      events: getEvents(id),
+      recommendations: getRecommendations(id)
+    }
   })
 
   ipcMain.handle(IpcChannels.deleteSession, (_e, id: number) => deleteSession(id))

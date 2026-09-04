@@ -5,7 +5,8 @@ import type {
   AnalysisEvent,
   FusionMode,
   SessionStatus,
-  PipelineResult
+  PipelineResult,
+  Recommendation
 } from '@shared/types'
 
 /** Raw `sessions` row (snake_case) → domain `Session`. */
@@ -20,6 +21,7 @@ interface SessionRow {
   face_score: number | null
   pose_score: number | null
   hands_score: number | null
+  overall_summary: string | null
   status: SessionStatus
 }
 
@@ -40,6 +42,7 @@ function toSession(r: SessionRow): Session {
       pose: r.pose_score ?? null,
       hands: r.hands_score ?? null
     },
+    overallSummary: r.overall_summary ?? null,
     status: r.status
   }
 }
@@ -88,10 +91,44 @@ export function getWindowScores(sessionId: number): WindowScore[] {
 
 export function getEvents(sessionId: number): AnalysisEvent[] {
   return dbAll<AnalysisEvent>(
-    `SELECT t_start_s AS tStartS, t_end_s AS tEndS, channel, type, severity, message, suggestion
+    `SELECT t_start_s AS tStartS, t_end_s AS tEndS, channel, type, severity, message,
+            suggestion, phrasing
      FROM events WHERE session_id = ? ORDER BY t_start_s`,
     [sessionId]
   )
+}
+
+/**
+ * The advice for a session, best first.
+ *
+ * `basis_event_types` is stored as one string because it is a short list that is only ever
+ * read back whole, never searched. It records which detected events each piece of advice was
+ * built from, which is what lets any advice on screen be traced back to something actually
+ * seen in the video.
+ */
+export function getRecommendations(sessionId: number): Recommendation[] {
+  const rows = dbAll<{
+    rank: number
+    channel: Recommendation['channel']
+    kind: string
+    title: string
+    body: string
+    basis_event_types: string | null
+    phrasing: Recommendation['phrasing']
+  }>(
+    `SELECT rank, channel, kind, title, body, basis_event_types, phrasing
+     FROM recommendations WHERE session_id = ? ORDER BY rank`,
+    [sessionId]
+  )
+  return rows.map((r) => ({
+    rank: r.rank,
+    channel: r.channel,
+    kind: r.kind,
+    title: r.title,
+    body: r.body,
+    basisEventTypes: r.basis_event_types ? r.basis_event_types.split(',') : [],
+    phrasing: r.phrasing
+  }))
 }
 
 export function setStatus(id: number, status: SessionStatus): void {
@@ -110,6 +147,7 @@ export function saveResult(sessionId: number, result: PipelineResult): void {
   transaction(() => {
     dbRun(`DELETE FROM window_scores WHERE session_id = ?`, [sessionId])
     dbRun(`DELETE FROM events WHERE session_id = ?`, [sessionId])
+    dbRun(`DELETE FROM recommendations WHERE session_id = ?`, [sessionId])
     for (const w of result.windows) {
       dbRun(
         `INSERT INTO window_scores (session_id, t_start_s, t_end_s, channel, raw_score, visibility, weight)
@@ -119,9 +157,41 @@ export function saveResult(sessionId: number, result: PipelineResult): void {
     }
     for (const e of result.events) {
       dbRun(
-        `INSERT INTO events (session_id, t_start_s, t_end_s, channel, type, severity, message, suggestion)
+        `INSERT INTO events (session_id, t_start_s, t_end_s, channel, type, severity, message,
+                             suggestion, phrasing)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          sessionId,
+          e.tStartS,
+          e.tEndS,
+          e.channel,
+          e.type,
+          e.severity,
+          e.message,
+          e.suggestion,
+          e.phrasing ?? null
+        ]
+      )
+    }
+    // Advice is stored in the order the analysis ranked it, and its basis is stored with it
+    // so a piece of advice can always be traced back to the events behind it.
+    for (const r of result.recommendations ?? []) {
+      dbRun(
+        `INSERT INTO recommendations (session_id, rank, channel, kind, title, body,
+                                      basis_event_types, phrasing)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [sessionId, e.tStartS, e.tEndS, e.channel, e.type, e.severity, e.message, e.suggestion]
+        [
+          sessionId,
+          r.rank,
+          r.channel,
+          r.kind,
+          r.title,
+          r.body,
+          // Advice drawn from no particular event stores nothing, rather than an empty
+          // string, so there is only one way of recording "none" in this column.
+          r.basisEventTypes?.length ? r.basisEventTypes.join(',') : null,
+          r.phrasing ?? null
+        ]
       )
     }
     // The channel scores come from the analysis rather than being worked out here. The
@@ -131,13 +201,15 @@ export function saveResult(sessionId: number, result: PipelineResult): void {
     dbRun(
       `UPDATE sessions
           SET overall_score = ?, face_score = ?, pose_score = ?, hands_score = ?,
-              status = 'complete'
+              overall_summary = ?, summary_phrasing = ?, status = 'complete'
         WHERE id = ?`,
       [
         result.overallScore,
         channels?.face ?? null,
         channels?.pose ?? null,
         channels?.hands ?? null,
+        result.overallSummary ?? null,
+        result.summaryPhrasing ?? null,
         sessionId
       ]
     )
@@ -145,7 +217,7 @@ export function saveResult(sessionId: number, result: PipelineResult): void {
 }
 
 export function deleteSession(id: number): void {
-  // ON DELETE CASCADE removes window_scores + events.
+  // ON DELETE CASCADE removes window_scores, events and recommendations.
   dbRun(`DELETE FROM sessions WHERE id = ?`, [id])
   persist()
 }

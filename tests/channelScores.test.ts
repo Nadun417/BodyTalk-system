@@ -62,7 +62,10 @@ describe('saveResult', () => {
   it('stores nothing rather than zero when the run produced no channel scores', () => {
     saveResult(9, resultWith(undefined))
     const { params } = finishingUpdate()
-    expect(params.filter((p) => p === null)).toHaveLength(3)
+    // Overall score, the three channels, the summary and how it was worded, then the id.
+    // Spelled out in full so that adding another column forces a decision about what an
+    // absent value means, rather than letting a zero slip in unnoticed.
+    expect(params).toEqual([78.5, null, null, null, null, null, 9])
     expect(params).not.toContain(0)
   })
 })

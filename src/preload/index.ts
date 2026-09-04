@@ -8,6 +8,7 @@ import type {
   WindowScore,
   AnalysisEvent,
   PipelineResult,
+  Recommendation,
   VideoValidation
 } from '@shared/types'
 
@@ -15,6 +16,7 @@ export interface SessionDetail {
   session: Session
   windows: WindowScore[]
   events: AnalysisEvent[]
+  recommendations: Recommendation[]
 }
 
 /**

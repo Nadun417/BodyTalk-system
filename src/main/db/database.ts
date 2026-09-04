@@ -51,7 +51,14 @@ export async function initDatabase(): Promise<void> {
  */
 function addMissingColumns(): void {
   const wanted: Record<string, string[]> = {
-    sessions: ['face_score REAL', 'pose_score REAL', 'hands_score REAL']
+    sessions: [
+      'face_score REAL',
+      'pose_score REAL',
+      'hands_score REAL',
+      'overall_summary TEXT',
+      'summary_phrasing TEXT'
+    ],
+    events: ['phrasing TEXT']
   }
   for (const [table, columns] of Object.entries(wanted)) {
     const present = new Set(
