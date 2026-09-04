@@ -17,26 +17,32 @@ import { IpcChannels } from '@shared/ipcChannels'
  * So the ending comes back as a plain answer, and these tests hold that in place.
  */
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
+const showMessageBox = vi.fn()
 
 vi.mock('electron', () => ({
   ipcMain: {
     handle: (channel: string, fn: (...a: unknown[]) => unknown) => handlers.set(channel, fn)
   },
-  dialog: { showOpenDialog: vi.fn(), showSaveDialog: vi.fn() },
-  BrowserWindow: { getFocusedWindow: () => null }
+  dialog: {
+    showOpenDialog: vi.fn(),
+    showSaveDialog: vi.fn(),
+    showMessageBox: (...args: unknown[]) => showMessageBox(...args)
+  },
+  BrowserWindow: { getFocusedWindow: () => null, fromWebContents: () => null }
 }))
 
 const analyse = vi.fn()
+const deleteSession = vi.fn()
 vi.mock('../src/main/services/sessionService', () => ({
   createSession: vi.fn(),
   validateVideo: vi.fn(),
   analyse: (...args: unknown[]) => analyse(...args),
   cancelAnalysis: vi.fn(),
-  deleteSession: vi.fn()
+  deleteSession: (...args: unknown[]) => deleteSession(...args)
 }))
 vi.mock('../src/main/db/sessionRepo', () => ({
   listSessions: vi.fn(() => []),
-  getSession: vi.fn(),
+  getSession: vi.fn(() => ({ id: 1, videoFilename: 'practice.mp4' })),
   getWindowScores: vi.fn(() => []),
   getEvents: vi.fn(() => []),
   getRecommendations: vi.fn(() => [])
@@ -88,5 +94,57 @@ describe('starting an analysis', () => {
     await expect(start()).resolves.toBeDefined()
     analyse.mockRejectedValue(new Error('something else entirely'))
     await expect(start()).resolves.toBeDefined()
+  })
+})
+
+/**
+ * Deleting a session asks first.
+ *
+ * The question is asked here, in the backend, rather than on the screen with the button on
+ * it, because this is the side that actually deletes. A screen added later cannot forget to
+ * ask, because it cannot reach the deletion without coming through here.
+ */
+describe('deleting a session', () => {
+  const remove = (): Promise<{ deleted: boolean }> =>
+    handlers.get(IpcChannels.deleteSession)!(event, 1) as Promise<{ deleted: boolean }>
+
+  beforeEach(() => vi.clearAllMocks())
+
+  it('asks before deleting anything', async () => {
+    showMessageBox.mockResolvedValue({ response: 0 })
+    await remove()
+    expect(showMessageBox).toHaveBeenCalled()
+  })
+
+  it('names the video, so it is clear which session is about to go', async () => {
+    showMessageBox.mockResolvedValue({ response: 0 })
+    await remove()
+    const question = showMessageBox.mock.calls[0][0] as { message: string; detail: string }
+    expect(question.message).toContain('practice.mp4')
+    expect(question.detail).toContain('cannot be undone')
+  })
+
+  /** A stray press of the keyboard should do nothing, so the safe answer is the default. */
+  it('offers to do nothing as the default answer', async () => {
+    showMessageBox.mockResolvedValue({ response: 1 })
+    const question = (await remove(), showMessageBox.mock.calls[0][0]) as {
+      buttons: string[]
+      defaultId: number
+      cancelId: number
+    }
+    expect(question.buttons[question.defaultId]).toBe('Cancel')
+    expect(question.buttons[question.cancelId]).toBe('Cancel')
+  })
+
+  it('deletes when the answer is yes', async () => {
+    showMessageBox.mockResolvedValue({ response: 0 })
+    expect(await remove()).toEqual({ deleted: true })
+    expect(deleteSession).toHaveBeenCalledWith(1)
+  })
+
+  it('deletes nothing when the answer is no', async () => {
+    showMessageBox.mockResolvedValue({ response: 1 })
+    expect(await remove()).toEqual({ deleted: false })
+    expect(deleteSession).not.toHaveBeenCalled()
   })
 })

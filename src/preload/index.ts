@@ -8,6 +8,7 @@ import type {
   WindowScore,
   AnalysisEvent,
   AnalysisOutcome,
+  DeleteOutcome,
   Recommendation,
   VideoValidation
 } from '@shared/types'
@@ -64,7 +65,8 @@ const api = {
   getSession: (id: number): Promise<SessionDetail | null> =>
     ipcRenderer.invoke(IpcChannels.getSession, id),
 
-  deleteSession: (id: number): Promise<void> => ipcRenderer.invoke(IpcChannels.deleteSession, id),
+  deleteSession: (id: number): Promise<DeleteOutcome> =>
+    ipcRenderer.invoke(IpcChannels.deleteSession, id),
 
   exportReport: (id: number): Promise<{ cancelled?: boolean; error?: string }> =>
     ipcRenderer.invoke(IpcChannels.exportReport, id),

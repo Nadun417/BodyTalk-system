@@ -34,8 +34,10 @@ export default function Home(): JSX.Element {
   }
 
   const remove = async (id: number): Promise<void> => {
-    await window.bodytalk.deleteSession(id)
-    refresh()
+    // The backend asks the user to confirm before it deletes anything, so this can come
+    // back having done nothing at all. Only reload the list when something actually went.
+    const outcome = await window.bodytalk.deleteSession(id)
+    if (outcome.deleted) refresh()
   }
 
   return (
