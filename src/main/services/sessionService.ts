@@ -79,6 +79,12 @@ export interface AnalyseOptions {
 /**
  * Run the analysis and save what comes back.
  *
+ * The pipeline is told which folder to work in, because it is this side of the app that
+ * decides where a session's files live and the pipeline has no way of knowing. Everything
+ * it produces then lands inside that one folder, which is what makes deleting a session
+ * actually delete it rather than leaving pieces of somebody's practice run scattered around
+ * their own folders.
+ *
  * The results are written twice on purpose: once to the database, which is what the
  * dashboard reads, and once as a plain results.json file in the session folder. The second
  * copy costs almost nothing and means a run is never lost to a database problem. It is also
@@ -95,6 +101,10 @@ export async function analyse(opts: AnalyseOptions): Promise<PipelineResult> {
       fusionMode: opts.fusionMode,
       videoPath: opts.videoPath,
       analysisFps: opts.analysisFps,
+      // Made again rather than assumed. A session created in an earlier run of the app
+      // still has its row in the database, but the folder can have been cleared out from
+      // underneath it, and the pipeline cannot write into a folder that is not there.
+      outDir: ensureSessionDir(opts.sessionId),
       selfTest: opts.selfTest,
       onProgress: opts.onProgress
     })
