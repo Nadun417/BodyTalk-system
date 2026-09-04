@@ -24,6 +24,15 @@ export const IpcChannels = {
   validateVideo: 'video:validate',
   /** Check the chosen video is usable, and start a new session if it is. */
   createSession: 'session:create',
+  /**
+   * Ask for the address the results screen can play a session's video from.
+   *
+   * The interface is never given a location on disk. It gets one of the app's own addresses,
+   * which the backend answers with the file, so the video can be played without the screen
+   * knowing or being able to reach anything on the machine. Comes back empty for a session
+   * recorded before videos were kept.
+   */
+  videoUrl: 'session:videoUrl',
   /** Start analysing a session. */
   startAnalysis: 'analysis:start',
   /** Stop an analysis that is still running. */

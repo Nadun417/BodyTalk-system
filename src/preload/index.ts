@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { IpcChannels } from '@shared/ipcChannels'
 import type {
   AppSettings,
@@ -50,6 +50,9 @@ const api = {
     selfTest?: boolean
   }): Promise<AnalysisOutcome> => ipcRenderer.invoke(IpcChannels.startAnalysis, args),
 
+  /** Where the results screen can play this session's video from, if it kept one. */
+  videoUrl: (id: number): Promise<string | null> => ipcRenderer.invoke(IpcChannels.videoUrl, id),
+
   cancelAnalysis: (sessionId: number): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.cancelAnalysis, sessionId),
 
@@ -74,7 +77,27 @@ const api = {
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke(IpcChannels.getSettings),
 
   setSettings: (patch: Partial<AppSettings>): Promise<AppSettings> =>
-    ipcRenderer.invoke(IpcChannels.setSettings, patch)
+    ipcRenderer.invoke(IpcChannels.setSettings, patch),
+
+  /**
+   * Where a file dragged onto the window actually lives on this machine.
+   *
+   * The interface is handed a dropped file as a browser object, which describes its name and
+   * size but not where it came from. Everything past this point works with a location on
+   * disk: the check opens the file, and the analysis reads it frame by frame. Only this side
+   * of the bridge can ask Electron to translate one into the other, which is the whole reason
+   * this exists here rather than in the screen doing the dropping.
+   *
+   * It gives back a location and nothing else. The interface still cannot open or read
+   * anything itself; it passes the location back for the backend to work with.
+   */
+  pathForFile: (file: File): string => {
+    try {
+      return webUtils.getPathForFile(file)
+    } catch {
+      return ''
+    }
+  }
 }
 
 contextBridge.exposeInMainWorld('bodytalk', api)

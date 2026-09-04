@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase, closeDatabase } from './db/database'
 import { ensureStorageLayout } from './fs/storage'
 import { registerIpcHandlers } from './ipc/handlers'
+import { registerVideoScheme, serveSessionVideos } from './fs/videoProtocol'
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -41,6 +42,9 @@ function createWindow(): BrowserWindow {
   return win
 }
 
+// Has to happen before the app is ready, which is why it sits out here on its own.
+registerVideoScheme()
+
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.bodytalk.app')
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
@@ -48,6 +52,7 @@ app.whenReady().then(async () => {
   ensureStorageLayout()
   await initDatabase()
   registerIpcHandlers()
+  serveSessionVideos()
 
   createWindow()
 
