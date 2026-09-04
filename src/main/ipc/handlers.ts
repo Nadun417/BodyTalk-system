@@ -65,14 +65,23 @@ export function registerIpcHandlers(): void {
         if (!sender.isDestroyed()) sender.send(IpcChannels.analysisProgress, update)
       }
       const settings = getSettings()
-      return analyse({
-        sessionId: args.sessionId,
-        fusionMode: args.fusionMode,
-        videoPath: args.videoPath,
-        analysisFps: settings.analysisFps,
-        selfTest: args.selfTest,
-        onProgress
-      })
+      // Every ending is reported as an answer rather than thrown. A thrown message does not
+      // survive the trip to the interface unchanged, so the interface cannot tell one ending
+      // from another by reading it, and cancelling ended up displayed as an internal error.
+      try {
+        await analyse({
+          sessionId: args.sessionId,
+          fusionMode: args.fusionMode,
+          videoPath: args.videoPath,
+          analysisFps: settings.analysisFps,
+          selfTest: args.selfTest,
+          onProgress
+        })
+        return {}
+      } catch (err) {
+        const message = (err as Error).message
+        return message === 'cancelled' ? { cancelled: true } : { error: message }
+      }
     }
   )
 

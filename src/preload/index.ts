@@ -7,7 +7,7 @@ import type {
   Session,
   WindowScore,
   AnalysisEvent,
-  PipelineResult,
+  AnalysisOutcome,
   Recommendation,
   VideoValidation
 } from '@shared/types'
@@ -47,7 +47,7 @@ const api = {
     fusionMode: FusionMode
     videoPath?: string
     selfTest?: boolean
-  }): Promise<PipelineResult> => ipcRenderer.invoke(IpcChannels.startAnalysis, args),
+  }): Promise<AnalysisOutcome> => ipcRenderer.invoke(IpcChannels.startAnalysis, args),
 
   cancelAnalysis: (sessionId: number): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.cancelAnalysis, sessionId),

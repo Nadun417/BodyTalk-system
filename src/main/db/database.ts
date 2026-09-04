@@ -29,10 +29,47 @@ export async function initDatabase(): Promise<void> {
   const SQL = await initSqlJs({ wasmBinary })
   const file = dbPath()
   db = existsSync(file) ? new SQL.Database(readFileSync(file)) : new SQL.Database()
-  db.run('PRAGMA foreign_keys = ON;')
+  enforceForeignKeys()
   db.run(schemaSql)
   addMissingColumns()
+  removeRowsWithNoSession()
   persist()
+}
+
+/**
+ * Clear out rows left behind by sessions that no longer exist.
+ *
+ * These should not be possible: a score or a comment belongs to a session and goes when the
+ * session goes. They exist because that rule was not actually in force for a long time (see
+ * `enforceForeignKeys`), so every session deleted before it was fixed left everything it
+ * held behind, invisibly.
+ *
+ * Running this once at startup finishes those deletions. It matters more than tidiness: the
+ * rows are a second-by-second record of where somebody's body was, belonging to a practice
+ * run they chose to delete, and until this runs they are still on the machine. On a database
+ * where deletion has always worked properly it finds nothing and costs nothing.
+ */
+function removeRowsWithNoSession(): void {
+  for (const table of ['window_scores', 'events', 'recommendations']) {
+    instance().run(`DELETE FROM ${table} WHERE session_id NOT IN (SELECT id FROM sessions)`)
+  }
+}
+
+/**
+ * Turn on the rule that a row belonging to a session goes when that session goes.
+ *
+ * SQLite starts with this switched off and it belongs to the open connection rather than to
+ * the file, so it has to be turned on every time a connection begins. That is easy to read
+ * as "once, at startup", and doing it once is not enough here: saving the database reopens
+ * it underneath us, which quietly starts a new connection with the rule off again. See the
+ * note in `persist`.
+ *
+ * With it off, deleting a session removed the session and left every one of its scores and
+ * comments behind, which for this app means a person deleting a practice run and leaving a
+ * second-by-second record of their body behind with nothing on screen to suggest it.
+ */
+function enforceForeignKeys(): void {
+  db?.run('PRAGMA foreign_keys = ON;')
 }
 
 /**
@@ -76,9 +113,19 @@ function instance(): Database {
   return db
 }
 
-/** Flush the in-memory DB to disk (sql.js holds the DB in memory). */
+/**
+ * Flush the in-memory database to disk (sql.js holds the database in memory).
+ *
+ * Asking for the bytes to save closes the database and opens it again underneath us. That
+ * is invisible from here and it throws away everything that was set on the connection, so
+ * the foreign-key rule has to be turned back on immediately afterwards or it is only ever
+ * in force between starting the app and the first save. It was off in exactly that way for
+ * a long time, and the symptom was deleting a session leaving all of its rows behind.
+ */
 export function persist(): void {
-  if (db) writeFileSync(dbPath(), Buffer.from(db.export()))
+  if (!db) return
+  writeFileSync(dbPath(), Buffer.from(db.export()))
+  enforceForeignKeys()
 }
 
 export function closeDatabase(): void {
