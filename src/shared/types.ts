@@ -181,6 +181,17 @@ export interface AnalysisOutcome {
   error?: string
 }
 
+/**
+ * What happened when a session was asked to be deleted.
+ *
+ * `deleted` is false when the user was asked to confirm and said no, which is an ordinary
+ * answer rather than a failure. The screen uses it to decide whether the list it is showing
+ * has actually changed.
+ */
+export interface DeleteOutcome {
+  deleted: boolean
+}
+
 /** The answer to "is this video usable?", checked before any analysis starts. */
 /**
  * The answer to "can this video be analysed?", produced before any analysis starts.

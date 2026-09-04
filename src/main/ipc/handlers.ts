@@ -100,7 +100,44 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle(IpcChannels.deleteSession, (_e, id: number) => deleteSession(id))
+  /**
+   * Delete a session, after asking whether that is really wanted.
+   *
+   * The asking happens here rather than on the screen that has the button, for the same
+   * reason the video is checked again here rather than trusted from the upload screen: this
+   * is the side that actually does the deleting, so this is the side that has to be sure. A
+   * second screen added later cannot get it wrong, because it cannot reach the deletion
+   * without going past this.
+   *
+   * Deleting is worth a question. It removes the scores, the feedback and the whole session
+   * folder from the machine with nothing to undo it, and once the video is copied in
+   * alongside them it takes a copy of somebody's recording too. The default answer is to do
+   * nothing, so that a stray press of the keyboard cannot destroy a session.
+   */
+  ipcMain.handle(IpcChannels.deleteSession, async (e: IpcMainInvokeEvent, id: number) => {
+    const session = getSession(id)
+    if (!session) return { deleted: false }
+
+    const question = {
+      type: 'warning' as const,
+      buttons: ['Delete', 'Cancel'],
+      defaultId: 1,
+      cancelId: 1,
+      title: 'Delete this session?',
+      message: `Delete the analysis of ${session.videoFilename}?`,
+      detail:
+        'Its scores, its feedback and everything saved in its folder are removed from this ' +
+        'computer. This cannot be undone.'
+    }
+    const parent = BrowserWindow.fromWebContents(e.sender)
+    const { response } = parent
+      ? await dialog.showMessageBox(parent, question)
+      : await dialog.showMessageBox(question)
+
+    if (response !== 0) return { deleted: false }
+    deleteSession(id)
+    return { deleted: true }
+  })
 
   ipcMain.handle(IpcChannels.exportReport, async (_e, _id: number) => {
     const win = BrowserWindow.getFocusedWindow()
