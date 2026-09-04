@@ -12,7 +12,29 @@
 
 export type FusionMode = 'adaptive' | 'fixed'
 
-export type Channel = 'face' | 'pose' | 'hands' | 'fused'
+/**
+ * The three things actually measured. `fused` is what they combine into, not a fourth
+ * measurement, which is why it is kept separate: anything that loops over the channels that
+ * were observed wants these three and would double-count with `fused` in the list.
+ */
+export type ScoredChannel = 'face' | 'pose' | 'hands'
+
+export type Channel = ScoredChannel | 'fused'
+
+/**
+ * The score for each channel across a whole session, as the analysis calculated it.
+ *
+ * These are carried through rather than worked out again from the per-window scores, and
+ * that is deliberate. A window where a channel could not be measured has no score, and the
+ * average has to skip it rather than treat it as a zero. Working the average out a second
+ * time somewhere else is how that distinction gets lost: a channel that was simply out of
+ * shot for a while ends up looking like a channel that performed badly, which is the one
+ * conclusion this project exists to avoid drawing.
+ *
+ * Null means the value was not recorded. Sessions analysed before these were stored have
+ * nothing here, and showing nothing is the honest answer for them.
+ */
+export type ChannelScores = Record<ScoredChannel, number | null>
 
 export type SessionStatus = 'pending' | 'processing' | 'complete' | 'error' | 'cancelled'
 
@@ -27,6 +49,7 @@ export interface Session {
   analysisFps: number
   fusionMode: FusionMode
   overallScore: number | null
+  channelScores: ChannelScores
   status: SessionStatus
 }
 
@@ -79,10 +102,18 @@ export interface ProgressUpdate {
   total: number
 }
 
-/** Everything the pipeline produces for one run. */
+/**
+ * Everything the pipeline produces for one run.
+ *
+ * The channel scores are optional because the self-test does not produce them. It exists to
+ * prove the two programs can talk to each other without needing the detection libraries
+ * installed, so it returns the smallest result that exercises that path rather than a
+ * complete one.
+ */
 export interface PipelineResult {
   fusionMode: FusionMode
   overallScore: number
+  channelScores?: ChannelScores
   windows: WindowScore[]
   events: AnalysisEvent[]
 }

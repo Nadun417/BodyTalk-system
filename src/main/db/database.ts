@@ -31,7 +31,37 @@ export async function initDatabase(): Promise<void> {
   db = existsSync(file) ? new SQL.Database(readFileSync(file)) : new SQL.Database()
   db.run('PRAGMA foreign_keys = ON;')
   db.run(schemaSql)
+  addMissingColumns()
   persist()
+}
+
+/**
+ * Bring a database made by an older version of the app up to the current shape.
+ *
+ * `schema.sql` only creates tables that are not there yet, which keeps it safe to run on
+ * every start but means it can do nothing about a table that already exists. Someone who
+ * has been using the app since before a column was added keeps their original table, and
+ * the first query mentioning the new column fails on their machine and nowhere else. This
+ * adds whatever is missing, and is safe to run every time because a column that is already
+ * present is left alone.
+ *
+ * Rows that already existed get nothing for the new column, which is the right answer
+ * rather than a shortcoming. A session analysed before per-channel scores were recorded
+ * genuinely has none, and filling one in after the fact would be inventing a result.
+ */
+function addMissingColumns(): void {
+  const wanted: Record<string, string[]> = {
+    sessions: ['face_score REAL', 'pose_score REAL', 'hands_score REAL']
+  }
+  for (const [table, columns] of Object.entries(wanted)) {
+    const present = new Set(
+      dbAll<{ name: string }>(`PRAGMA table_info(${table})`).map((row) => row.name)
+    )
+    for (const column of columns) {
+      const name = column.split(' ')[0]
+      if (!present.has(name)) instance().run(`ALTER TABLE ${table} ADD COLUMN ${column}`)
+    }
+  }
 }
 
 function instance(): Database {
