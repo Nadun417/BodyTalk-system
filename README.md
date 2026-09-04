@@ -33,9 +33,27 @@ fusion** (the research novelty) → feedback engine → interactive dashboard �
 npm install
 
 # 2. Python pipeline (use a 3.11/3.12 interpreter)
+powershell -ExecutionPolicy Bypass -File pipeline/setup.ps1
+```
+
+`setup.ps1` finds a Python the analysis libraries support, creates the environment in
+`pipeline/.venv` and installs what is needed. It is safe to run more than once: if everything is
+already there it checks and says so rather than downloading again. To do it by hand instead:
+
+```bash
 py -3.11 -m venv pipeline/.venv
 pipeline/.venv/Scripts/pip install -r pipeline/requirements.txt
 ```
+
+## Installing the packaged app
+
+The installer carries the analysis code but not the Python that runs it, which would add several
+hundred megabytes and needs a matching interpreter underneath. So after installing, run
+`setup.ps1` once from the app's `resources/pipeline` folder.
+
+Until that is done the app still opens, and sessions analysed elsewhere can still be read, but
+analysing a new video will say plainly that the analysis software is missing. That one setup step
+is the only time anything is downloaded; the app itself never uses the internet.
 
 ## Run / build
 

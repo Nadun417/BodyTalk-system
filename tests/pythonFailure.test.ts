@@ -16,6 +16,7 @@ describe('explaining why the analysis could not run', () => {
   it('says what is wrong in words, when a piece of the analysis software is missing', () => {
     const said = explainPythonFailure("No module named 'cv2'")
     expect(said).toContain('cannot analyse videos')
+    expect(said).toContain('setup.ps1')
     expect(said).not.toMatch(/^No module named/)
   })
 
@@ -24,12 +25,12 @@ describe('explaining why the analysis could not run', () => {
   })
 
   it('says what does still work, rather than only what does not', () => {
-    expect(explainPythonFailure("No module named 'cv2'")).toContain('still works')
+    expect(explainPythonFailure("No module named 'cv2'")).toContain('works without it')
   })
 
   it('covers Python being absent altogether, not just a missing piece of it', () => {
     const said = explainPythonFailure('Failed to start Python pipeline: spawn python ENOENT')
-    expect(said).toContain('not installed on this computer')
+    expect(said).toContain('not set up on this computer')
   })
 
   /**

@@ -128,9 +128,9 @@ export function validateVideoFile(
  * interview.
  *
  * That case is not hypothetical. The installer carries the analysis code but not the Python
- * that runs it, so anybody who installs this without already having that set up meets exactly
- * this. Telling them plainly what is wrong is the least it can do, and it is deliberately not
- * promising a fix here, because how that gets installed is not yet settled.
+ * that runs it, because that would add several hundred megabytes and needs a matching
+ * interpreter underneath, so anybody who installs this without already having that set up meets
+ * exactly this. They are pointed at the one step that fixes it.
  */
 export function explainPythonFailure(raw: string): string {
   const missingModule = /No module named ['"]?([\w.]+)/.exec(raw)
@@ -138,9 +138,10 @@ export function explainPythonFailure(raw: string): string {
 
   if (missingModule || couldNotStart) {
     return (
-      'This copy of BodyTalk cannot analyse videos, because the analysis software it needs ' +
-      'is not installed on this computer. Everything else, including opening and reading ' +
-      'sessions that were analysed elsewhere, still works.' +
+      'This copy of BodyTalk cannot analyse videos yet, because the analysis software it ' +
+      'needs is not set up on this computer. Running setup.ps1, in the pipeline folder where ' +
+      'BodyTalk is installed, puts it in place. Everything else, including opening and ' +
+      'reading sessions analysed elsewhere, works without it.' +
       (missingModule ? ` (The missing part is "${missingModule[1]}".)` : '')
     )
   }
