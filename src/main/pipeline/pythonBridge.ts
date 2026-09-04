@@ -123,6 +123,18 @@ export interface RunPipelineOptions {
   fusionMode: FusionMode
   videoPath?: string
   analysisFps?: number
+  /**
+   * The folder this session owns, which is where the pipeline puts the files it produces.
+   *
+   * This has to be passed. Without it the pipeline has no idea where the app keeps its
+   * files, so it falls back to writing the landmark data into a folder beside the video it
+   * was given. That is somebody's own folder, wherever they happened to keep the recording,
+   * and the file left there is a frame-by-frame record of where their body was throughout.
+   * It also survives deleting the session, because deletion removes the session folder and
+   * nothing else, so a user could delete a practice run and leave the detailed version of it
+   * behind without ever being told.
+   */
+  outDir?: string
   /** Run the dependency-free self-test (no MediaPipe needed). */
   selfTest?: boolean
   onProgress: (update: ProgressUpdate) => void
@@ -138,6 +150,7 @@ export function runPipeline(opts: RunPipelineOptions): Promise<PipelineResult> {
     } else {
       if (opts.videoPath) args.push('--video', opts.videoPath)
       if (opts.analysisFps) args.push('--fps', String(opts.analysisFps))
+      if (opts.outDir) args.push('--out', opts.outDir)
     }
 
     const child = spawn(pythonExecutable(), args, { cwd: pipelineDir() })
@@ -166,9 +179,14 @@ export function runPipeline(opts: RunPipelineOptions): Promise<PipelineResult> {
             total: Number(msg.total ?? 0)
           })
           break
-        case 'result':
-          result = msg as unknown as PipelineResult
+        case 'result': {
+          // "type" is how the line announced itself on the way over, not part of the
+          // result. Dropping it here keeps that detail of how the two programs talk from
+          // spreading into everything downstream that handles a result.
+          const { type: _transport, ...payload } = msg
+          result = payload as unknown as PipelineResult
           break
+        }
         case 'error':
           errorMsg = String(msg.message ?? 'Unknown pipeline error')
           break
