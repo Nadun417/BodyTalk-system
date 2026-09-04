@@ -40,11 +40,16 @@ export default function Processing(): JSX.Element {
           videoPath: state.videoPath,
           selfTest: state.selfTest
         })
-        .then(() => navigate(`/dashboard/${sessionId}`, { replace: true }))
-        .catch((e: Error) => {
-          if (e.message !== 'cancelled') setError(e.message)
-          else navigate('/', { replace: true })
+        .then((outcome) => {
+          // Three endings, told apart by what came back rather than by reading an error
+          // message. Messages do not survive the trip from the backend unchanged, so a
+          // cancelled run used to be mistaken for a failure and the user was left here
+          // watching a progress bar that had stopped.
+          if (outcome.cancelled) navigate('/', { replace: true })
+          else if (outcome.error) setError(outcome.error)
+          else navigate(`/dashboard/${sessionId}`, { replace: true })
         })
+        .catch((e: Error) => setError(e.message))
     }
 
     return unsubscribe

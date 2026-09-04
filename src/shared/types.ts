@@ -158,6 +158,29 @@ export interface PipelineResult {
   recommendations?: Recommendation[]
 }
 
+/**
+ * How an analysis ended.
+ *
+ * All three endings come back as an ordinary answer rather than as a thrown error, and that
+ * is the point of this type. A message thrown in the backend does not arrive in the
+ * interface as it was written: it gets wrapped, so what set out as "cancelled" arrives as
+ * "Error invoking remote method 'analysis:start': Error: cancelled". Code on the other side
+ * that recognises an ending by its wording therefore fails to recognise it, and the user
+ * who pressed Cancel was left watching a progress bar with the app's internal plumbing
+ * quoted underneath it.
+ *
+ * Cancelling is not a failure in any case. It is a thing the user chose to do, and it reads
+ * oddly to treat it as an error anywhere in the code.
+ *
+ * Nothing set means it finished: the scores are saved and the results are ready to open.
+ */
+export interface AnalysisOutcome {
+  /** The user pressed Cancel. Nothing was saved, and there is nothing to apologise for. */
+  cancelled?: boolean
+  /** Something went wrong, phrased for the person who has to read it. */
+  error?: string
+}
+
 /** The answer to "is this video usable?", checked before any analysis starts. */
 /**
  * The answer to "can this video be analysed?", produced before any analysis starts.
