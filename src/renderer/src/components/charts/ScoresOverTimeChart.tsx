@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -27,8 +28,16 @@ ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend, Filler
  * silently close the gap and show a stretch of video that was never analysed as though it
  * had been.
  */
-export default function ScoresOverTimeChart({ windows }: { windows: WindowScore[] }): JSX.Element {
-  const theme = useChartTheme()
+export default function ScoresOverTimeChart({
+  windows,
+  forExport
+}: {
+  windows: WindowScore[]
+  /** Drawn to be captured as a picture for the PDF rather than shown on screen. */
+  forExport?: boolean
+}): JSX.Element {
+  const box = useRef<HTMLDivElement>(null)
+  const theme = useChartTheme(box)
   const channels: Channel[] = ['fused', 'face', 'pose', 'hands']
 
   const datasets = channels.map((channel) => ({
@@ -48,12 +57,19 @@ export default function ScoresOverTimeChart({ windows }: { windows: WindowScore[
   }))
 
   return (
-    <div className="chart-wrap" style={{ height: 260 }}>
+    <div className="chart-wrap" ref={box} style={{ height: 260 }}>
       <Line
         data={{ datasets }}
         options={{
+          // Still sized by its container when it is being captured. Turning that off makes
+          // the canvas fall back to a default of 300 by 150, which then gets blown up to fill
+          // the width of a page and takes every label with it.
           responsive: true,
           maintainAspectRatio: false,
+          // Capturing a chart that is still animating catches it half drawn, and drawing it
+          // at twice the density keeps the lines and labels crisp on paper.
+          animation: forExport ? false : undefined,
+          devicePixelRatio: forExport ? 2 : undefined,
           interaction: { mode: 'index', intersect: false },
           scales: {
             y: {

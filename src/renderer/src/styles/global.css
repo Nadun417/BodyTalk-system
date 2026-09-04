@@ -16,7 +16,13 @@
   whatever the machine already has and stops there.
 */
 
-:root {
+/*
+  The light palette. Written for both the page's default state and for anything explicitly
+  marked as light, which is how the charts bound for a PDF get light colours even while the
+  app itself is in the dark theme: paper is always white.
+*/
+:root,
+[data-theme='light'] {
   --bg: #f3f4f8;
   --surface: #ffffff;
   --surface-2: #f8fafc;

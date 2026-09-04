@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState, type RefObject } from 'react'
 import type { Channel } from '@shared/types'
 
 /**
@@ -20,8 +20,8 @@ export interface ChartTheme {
   grid: string
 }
 
-function readTheme(): ChartTheme {
-  const style = getComputedStyle(document.documentElement)
+function readTheme(from?: Element | null): ChartTheme {
+  const style = getComputedStyle(from ?? document.documentElement)
   const value = (name: string, fallback: string): string =>
     style.getPropertyValue(name).trim() || fallback
   return {
@@ -36,19 +36,30 @@ function readTheme(): ChartTheme {
   }
 }
 
-export function useChartTheme(): ChartTheme {
-  const [theme, setTheme] = useState<ChartTheme>(readTheme)
+/**
+ * @param from An element to read the colours from, when they should not come from the page as
+ * a whole. A chart being captured for a PDF reads from a container marked as light, because
+ * the document it is going into is on white paper whichever theme the app happens to be in.
+ */
+export function useChartTheme(from?: RefObject<Element>): ChartTheme {
+  const [theme, setTheme] = useState<ChartTheme>(() => readTheme(from?.current))
+
+  // The element is not there yet on the first render, so the colours are read again as soon
+  // as it is. Without this a chart bound for a PDF would keep whatever the page was using.
+  useLayoutEffect(() => {
+    if (from?.current) setTheme(readTheme(from.current))
+  }, [from])
 
   useEffect(() => {
     // The theme is recorded as an attribute on the page itself, so watching that attribute is
     // the most direct way to know it changed, and it needs no message passing between screens.
-    const observer = new MutationObserver(() => setTheme(readTheme()))
+    const observer = new MutationObserver(() => setTheme(readTheme(from?.current)))
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ['data-theme']
     })
     return () => observer.disconnect()
-  }, [])
+  }, [from])
 
   return theme
 }

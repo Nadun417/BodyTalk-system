@@ -1,4 +1,5 @@
 import { ipcMain, dialog, BrowserWindow, type IpcMainInvokeEvent } from 'electron'
+import { join, dirname } from 'path'
 import { IpcChannels } from '@shared/ipcChannels'
 import type { AppSettings, FusionMode, ProgressUpdate } from '@shared/types'
 import {
@@ -18,6 +19,7 @@ import {
 import { getSettings, setSettings } from '../db/settingsRepo'
 import { sourceVideoPath } from '../fs/storage'
 import { videoUrl } from '../fs/videoProtocol'
+import { writeReportPdf } from '../services/reportService'
 
 /** Registers every IPC handler. The renderer reaches the backend through these only. */
 export function registerIpcHandlers(): void {
@@ -149,19 +151,46 @@ export function registerIpcHandlers(): void {
     return { deleted: true }
   })
 
-  ipcMain.handle(IpcChannels.exportReport, async (_e, _id: number) => {
-    const win = BrowserWindow.getFocusedWindow()
-    const res = await dialog.showSaveDialog(win!, {
-      title: 'Save feedback report',
-      defaultPath: 'bodytalk-report.pdf',
-      filters: [{ name: 'PDF', extensions: ['pdf'] }]
-    })
-    if (res.canceled || !res.filePath) return { cancelled: true }
-    // [Step 8] renderer builds + renders the doc (report/pdfReport.ts) → bytes over IPC →
-    // The next step is reportService.writeReportPdf(bytes, res.filePath). The interface does
-    // not produce the PDF bytes yet, so there is nothing to pass along at this point.
-    return { error: 'PDF export is not finished yet.' }
-  })
+  /**
+   * Save a finished report where the user asks for it.
+   *
+   * The document arrives already made. The interface builds it, because that is where the
+   * numbers and the drawn charts already are, and this side does the one thing the interface
+   * is not allowed to do: put a file on the disk.
+   *
+   * The folder they chose last time is offered again. Somebody exporting a second session
+   * almost always wants it beside the first, and being dropped back into the home folder
+   * every time is a small irritation that is easy to remove.
+   */
+  ipcMain.handle(
+    IpcChannels.exportReport,
+    async (e: IpcMainInvokeEvent, id: number, bytes: Uint8Array) => {
+      const session = getSession(id)
+      if (!session) return { error: 'That session no longer exists.' }
+      if (!bytes?.byteLength) return { error: 'The report came through empty and was not saved.' }
+
+      const settings = getSettings()
+      const name = `BodyTalk report ${session.createdAt.slice(0, 10)}.pdf`
+      const parent = BrowserWindow.fromWebContents(e.sender)
+      const options = {
+        title: 'Save feedback report',
+        defaultPath: settings.reportSavePath ? join(settings.reportSavePath, name) : name,
+        filters: [{ name: 'PDF', extensions: ['pdf'] }]
+      }
+      const res = parent
+        ? await dialog.showSaveDialog(parent, options)
+        : await dialog.showSaveDialog(options)
+      if (res.canceled || !res.filePath) return { cancelled: true }
+
+      try {
+        await writeReportPdf(bytes, res.filePath)
+      } catch (err) {
+        return { error: `The report could not be saved: ${(err as Error).message}` }
+      }
+      setSettings({ reportSavePath: dirname(res.filePath) })
+      return { savedTo: res.filePath }
+    }
+  )
 
   ipcMain.handle(IpcChannels.getSettings, () => getSettings())
   ipcMain.handle(IpcChannels.setSettings, (_e, patch: Partial<AppSettings>) => setSettings(patch))
