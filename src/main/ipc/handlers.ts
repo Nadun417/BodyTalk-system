@@ -16,6 +16,8 @@ import {
   getRecommendations
 } from '../db/sessionRepo'
 import { getSettings, setSettings } from '../db/settingsRepo'
+import { sourceVideoPath } from '../fs/storage'
+import { videoUrl } from '../fs/videoProtocol'
 
 /** Registers every IPC handler. The renderer reaches the backend through these only. */
 export function registerIpcHandlers(): void {
@@ -85,6 +87,12 @@ export function registerIpcHandlers(): void {
         return message === 'cancelled' ? { cancelled: true } : { error: message }
       }
     }
+  )
+
+  // The address, not the file's location. The interface can play the video through it and
+  // still has no way of reaching anything on the disk itself.
+  ipcMain.handle(IpcChannels.videoUrl, (_e, id: number) =>
+    sourceVideoPath(id) ? videoUrl(id) : null
   )
 
   ipcMain.handle(IpcChannels.cancelAnalysis, (_e, sessionId: number) => cancelAnalysis(sessionId))
