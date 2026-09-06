@@ -85,6 +85,35 @@ CREATE TABLE IF NOT EXISTS recommendations (
   phrasing          TEXT
 );
 
+-- How each channel score was arrived at, broken down by the measurements behind it.
+--
+-- A channel score is an average of two or three separate measurements, so the score on its
+-- own hides the thing a user most needs to know. A face score of 66 might be three middling
+-- measurements or two near-perfect ones and a third sitting on the floor, and those two need
+-- opposite advice. Without this table the interface can only show the average and has no way
+-- of telling them apart.
+--
+-- shortfall is how many points out of 100 that measurement pulled its channel down by. Within
+-- a channel these add up exactly to the gap between the channel score and 100, which is what
+-- lets the breakdown be shown as fact rather than as a rough guide.
+--
+-- scored is the column to be careful with. A measurement can be recorded here without having
+-- counted toward the score, and one is: fidgeting is still measured and kept because it is
+-- evidence worth having, but it was withdrawn from the score after proving unreliable. A row
+-- with scored = 0 must never be presented as the reason a score came out as it did.
+CREATE TABLE IF NOT EXISTS channel_metrics (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  channel    TEXT NOT NULL,
+  metric     TEXT NOT NULL,
+  label      TEXT NOT NULL,
+  scored     INTEGER NOT NULL DEFAULT 1,
+  mean_score REAL,
+  windows    INTEGER NOT NULL DEFAULT 0,
+  coverage   REAL,
+  shortfall  REAL NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
   value TEXT
@@ -93,3 +122,4 @@ CREATE TABLE IF NOT EXISTS settings (
 CREATE INDEX IF NOT EXISTS idx_window_scores_session ON window_scores(session_id);
 CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
 CREATE INDEX IF NOT EXISTS idx_recommendations_session ON recommendations(session_id);
+CREATE INDEX IF NOT EXISTS idx_channel_metrics_session ON channel_metrics(session_id);

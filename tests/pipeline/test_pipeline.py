@@ -129,13 +129,14 @@ def test_the_result_has_every_field_the_application_reads(tmp_path):
         "channelScores",
         "overallSummary",
         "summaryPhrasing",
+        "channelMetrics",
         "windows",
         "events",
         "recommendations",
         "meta",
     ):
         assert key in result, f"missing {key}"
-    assert result["schemaVersion"] == 2
+    assert result["schemaVersion"] == 3
     assert result["fusionMode"] == "adaptive"
 
 

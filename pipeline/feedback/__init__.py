@@ -2,8 +2,9 @@
 
 Two steps, kept apart on purpose.
 
-  rules.py   decides WHAT is worth saying, and when it happened
-  scorer.py  reduces the whole session to the headline numbers and a short summary
+  rules.py    decides WHAT is worth saying, and when it happened
+  metrics.py  works out WHICH measurement inside a channel produced its score
+  scorer.py   reduces the whole session to the headline numbers and a short summary
 
 The separation matters more than it looks. The rules own every judgement: which behaviours
 count, how long they must last, and what is said about them. Anything added later that
@@ -11,6 +12,12 @@ rewords the output can only ever reword what the rules already found, so it cann
 behaviour, move a timestamp, or reach a conclusion of its own.
 """
 
+from .metrics import (
+    MetricReport,
+    driving_metric,
+    explain_channel,
+    metric_reports,
+)
 from .rules import (
     Event,
     Recommendation,
@@ -26,6 +33,10 @@ from .scorer import SessionFacts, SessionSummary, summarise, summary_sentence
 
 __all__ = [
     "Event",
+    "MetricReport",
+    "driving_metric",
+    "explain_channel",
+    "metric_reports",
     "Recommendation",
     "all_events",
     "clock",

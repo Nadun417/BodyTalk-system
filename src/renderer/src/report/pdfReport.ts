@@ -1,5 +1,11 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces'
-import type { Session, AnalysisEvent, Recommendation, ScoredChannel } from '@shared/types'
+import type {
+  Session,
+  AnalysisEvent,
+  ChannelMetric,
+  Recommendation,
+  ScoredChannel
+} from '@shared/types'
 import { clock, shortDate, CHANNEL_NAME } from '../lib/format'
 
 /**
@@ -28,6 +34,8 @@ export interface ReportInput {
   session: Session
   events: AnalysisEvent[]
   recommendations: Recommendation[]
+  /** What each channel score was made of, so the report explains the numbers it prints. */
+  channelMetrics: ChannelMetric[]
   windowCount: number
   /** The two charts, already drawn, as picture data. Absent if they could not be captured. */
   charts?: { scores?: string; weights?: string }
@@ -40,7 +48,7 @@ const INK = '#111827'
 const BRAND = '#2563eb'
 
 export function buildReportDocDefinition(input: ReportInput): TDocumentDefinitions {
-  const { session, events, recommendations, windowCount, charts } = input
+  const { session, events, recommendations, channelMetrics, windowCount, charts } = input
   const modeName = session.fusionMode === 'adaptive' ? 'Adaptive' : 'Fixed'
 
   const content: Content[] = [
@@ -126,6 +134,49 @@ export function buildReportDocDefinition(input: ReportInput): TDocumentDefinitio
     })
   }
 
+  if (channelMetrics.length) {
+    content.push(
+      { text: 'What made up each score', style: 'h2' },
+      {
+        text:
+          'Each score above is an average of the measurements below it. The shortfall column ' +
+          'is how many points out of 100 that measurement pulled its channel down by.',
+        style: 'note',
+        margin: [0, 2, 0, 8]
+      },
+      {
+        table: {
+          headerRows: 1,
+          widths: ['*', 'auto', 'auto', 'auto'],
+          body: [
+            [
+              { text: 'Measurement', style: 'th' },
+              { text: 'Channel', style: 'th' },
+              { text: 'Average', style: 'th' },
+              { text: 'Shortfall', style: 'th' }
+            ],
+            ...channelMetrics.map((m) => [
+              {
+                // Saying so on the row itself rather than in a footnote. A reader skimming
+                // the table would otherwise take this number for one that shaped the score.
+                text: m.scored ? m.label : `${m.label} (not counted towards the score)`,
+                style: 'cell'
+              },
+              { text: CHANNEL_NAME[m.channel], style: 'cell' },
+              { text: m.meanScore === null ? '—' : String(Math.round(m.meanScore)), style: 'cell' },
+              {
+                text: m.scored ? m.shortfall.toFixed(1) : '—',
+                style: 'cell'
+              }
+            ])
+          ]
+        },
+        layout: 'lightHorizontalLines',
+        margin: [0, 0, 0, 16]
+      }
+    )
+  }
+
   if (recommendations.length) {
     content.push(
       { text: 'What to try next', style: 'h2' },
@@ -139,7 +190,12 @@ export function buildReportDocDefinition(input: ReportInput): TDocumentDefinitio
           margin: [0, 0, 0, 10],
           stack: [
             { text: `${r.rank}. ${r.title}`, style: 'adviceTitle' },
-            { text: r.body, style: 'cell' }
+            { text: r.body, style: 'cell' },
+            // Kept separate from the advice above it, as it is on screen: this sentence is
+            // arithmetic and is never reworded by anything.
+            ...(r.detail
+              ? ([{ text: r.detail, style: 'note', margin: [0, 3, 0, 0] }] as Content[])
+              : [])
           ]
         })
       )

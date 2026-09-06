@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildReportDocDefinition, type ReportInput } from '../src/renderer/src/report/pdfReport'
-import type { Session, AnalysisEvent, Recommendation } from '../src/shared/types'
+import type { Session, AnalysisEvent, ChannelMetric, Recommendation } from '../src/shared/types'
 
 /**
  * What the exported document says.
@@ -49,12 +49,46 @@ const recommendations: Recommendation[] = [
   }
 ]
 
+const channelMetrics: ChannelMetric[] = [
+  {
+    channel: 'face',
+    metric: 'liveliness',
+    label: 'expression variation',
+    scored: true,
+    meanScore: 1.7,
+    windows: 101,
+    coverage: 0.99,
+    shortfall: 32.59
+  },
+  {
+    channel: 'face',
+    metric: 'facing',
+    label: 'facing the camera',
+    scored: true,
+    meanScore: 100,
+    windows: 102,
+    coverage: 1,
+    shortfall: 0
+  },
+  {
+    channel: 'hands',
+    metric: 'fidget',
+    label: 'fidgeting',
+    scored: false,
+    meanScore: 12,
+    windows: 101,
+    coverage: 1,
+    shortfall: 0
+  }
+]
+
 const build = (over: Partial<ReportInput> = {}): string =>
   JSON.stringify(
     buildReportDocDefinition({
       session,
       events,
       recommendations,
+      channelMetrics,
       windowCount: 143,
       charts: { scores: 'data:image/png;base64,AAA', weights: 'data:image/png;base64,BBB' },
       ...over
@@ -63,7 +97,13 @@ const build = (over: Partial<ReportInput> = {}): string =>
 
 describe('buildReportDocDefinition', () => {
   it('names the session in the document title', () => {
-    const doc = buildReportDocDefinition({ session, events, recommendations, windowCount: 143 })
+    const doc = buildReportDocDefinition({
+      session,
+      events,
+      recommendations,
+      channelMetrics,
+      windowCount: 143
+    })
     expect(doc.info?.title).toContain('2026')
   })
 
@@ -83,6 +123,32 @@ describe('buildReportDocDefinition', () => {
     const doc = build()
     for (const score of ['78', '66.4', '98.3', '71.4']) expect(doc).toContain(score)
     expect(doc).toContain('Adaptive weighting')
+  })
+
+  it('breaks each score down into the measurements behind it', () => {
+    const doc = build()
+    expect(doc).toContain('What made up each score')
+    expect(doc).toContain('expression variation')
+    expect(doc).toContain('32.6')
+  })
+
+  it('marks a measurement that did not count towards the score', () => {
+    // A reader skimming the table would otherwise take fidgeting for one of the numbers
+    // that shaped the result. It was withdrawn from the score for being unreliable, and
+    // the document is the version that gets kept and forwarded, so it has to say so.
+    const doc = build()
+    expect(doc).toContain('fidgeting (not counted towards the score)')
+  })
+
+  it('prints the factual breakdown under the advice it belongs to', () => {
+    const doc = build({
+      recommendations: [{ ...recommendations[0], detail: 'What held this back most was X.' }]
+    })
+    expect(doc).toContain('What held this back most was X.')
+  })
+
+  it('leaves the breakdown out entirely when there is none', () => {
+    expect(build({ channelMetrics: [] })).not.toContain('What made up each score')
   })
 
   it('embeds both charts when they were captured', () => {
@@ -107,7 +173,13 @@ describe('buildReportDocDefinition', () => {
    * mean has to travel with them.
    */
   it('states on the page that it describes behaviour and not the person', () => {
-    const doc = buildReportDocDefinition({ session, events, recommendations, windowCount: 143 })
+    const doc = buildReportDocDefinition({
+      session,
+      events,
+      recommendations,
+      channelMetrics,
+      windowCount: 143
+    })
     const footer = doc.footer as (page: number, pages: number) => unknown
     expect(JSON.stringify(footer(1, 2))).toContain('not an assessment of the person')
   })

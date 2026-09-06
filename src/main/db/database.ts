@@ -50,7 +50,7 @@ export async function initDatabase(): Promise<void> {
  * where deletion has always worked properly it finds nothing and costs nothing.
  */
 function removeRowsWithNoSession(): void {
-  for (const table of ['window_scores', 'events', 'recommendations']) {
+  for (const table of ['window_scores', 'events', 'recommendations', 'channel_metrics']) {
     instance().run(`DELETE FROM ${table} WHERE session_id NOT IN (SELECT id FROM sessions)`)
   }
 }
@@ -95,7 +95,8 @@ function addMissingColumns(): void {
       'overall_summary TEXT',
       'summary_phrasing TEXT'
     ],
-    events: ['phrasing TEXT']
+    events: ['phrasing TEXT'],
+    recommendations: ['detail TEXT']
   }
   for (const [table, columns] of Object.entries(wanted)) {
     const present = new Set(

@@ -6,7 +6,8 @@ import type {
   FusionMode,
   SessionStatus,
   PipelineResult,
-  Recommendation
+  Recommendation,
+  ChannelMetric
 } from '@shared/types'
 
 /** Raw `sessions` row (snake_case) → domain `Session`. */
@@ -115,8 +116,9 @@ export function getRecommendations(sessionId: number): Recommendation[] {
     body: string
     basis_event_types: string | null
     phrasing: Recommendation['phrasing']
+    detail: string | null
   }>(
-    `SELECT rank, channel, kind, title, body, basis_event_types, phrasing
+    `SELECT rank, channel, kind, title, body, basis_event_types, phrasing, detail
      FROM recommendations WHERE session_id = ? ORDER BY rank`,
     [sessionId]
   )
@@ -127,7 +129,47 @@ export function getRecommendations(sessionId: number): Recommendation[] {
     title: r.title,
     body: r.body,
     basisEventTypes: r.basis_event_types ? r.basis_event_types.split(',') : [],
-    phrasing: r.phrasing
+    phrasing: r.phrasing,
+    detail: r.detail
+  }))
+}
+
+/**
+ * How each channel score was arrived at, worst offender first within each channel.
+ *
+ * This is what lets the interface say which measurement actually produced a score instead
+ * of only showing the average. Telling somebody to work on their face and eye contact when
+ * their eye contact was fine throughout, and the whole shortfall came from a still
+ * expression, is advice that is both useless and slightly insulting, and the score by
+ * itself cannot tell those two apart.
+ */
+export function getChannelMetrics(sessionId: number): ChannelMetric[] {
+  const rows = dbAll<{
+    channel: ChannelMetric['channel']
+    metric: string
+    label: string
+    scored: number
+    mean_score: number | null
+    windows: number
+    coverage: number | null
+    shortfall: number
+  }>(
+    `SELECT channel, metric, label, scored, mean_score, windows, coverage, shortfall
+     FROM channel_metrics WHERE session_id = ? ORDER BY channel, shortfall DESC, metric`,
+    [sessionId]
+  )
+  return rows.map((r) => ({
+    channel: r.channel,
+    metric: r.metric,
+    label: r.label,
+    // SQLite has no boolean of its own, so this arrives as 0 or 1 and is turned back here.
+    // It decides whether a measurement may be named as the reason for a score, so it is
+    // worth converting in one place rather than at each point of use.
+    scored: r.scored !== 0,
+    meanScore: r.mean_score,
+    windows: r.windows,
+    coverage: r.coverage ?? 0,
+    shortfall: r.shortfall
   }))
 }
 
@@ -148,6 +190,7 @@ export function saveResult(sessionId: number, result: PipelineResult): void {
     dbRun(`DELETE FROM window_scores WHERE session_id = ?`, [sessionId])
     dbRun(`DELETE FROM events WHERE session_id = ?`, [sessionId])
     dbRun(`DELETE FROM recommendations WHERE session_id = ?`, [sessionId])
+    dbRun(`DELETE FROM channel_metrics WHERE session_id = ?`, [sessionId])
     for (const w of result.windows) {
       dbRun(
         `INSERT INTO window_scores (session_id, t_start_s, t_end_s, channel, raw_score, visibility, weight)
@@ -178,8 +221,8 @@ export function saveResult(sessionId: number, result: PipelineResult): void {
     for (const r of result.recommendations ?? []) {
       dbRun(
         `INSERT INTO recommendations (session_id, rank, channel, kind, title, body,
-                                      basis_event_types, phrasing)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                                      basis_event_types, phrasing, detail)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           sessionId,
           r.rank,
@@ -190,7 +233,28 @@ export function saveResult(sessionId: number, result: PipelineResult): void {
           // Advice drawn from no particular event stores nothing, rather than an empty
           // string, so there is only one way of recording "none" in this column.
           r.basisEventTypes?.length ? r.basisEventTypes.join(',') : null,
-          r.phrasing ?? null
+          r.phrasing ?? null,
+          r.detail ?? null
+        ]
+      )
+    }
+    // The breakdown of what each channel score was made of. Absent from a self-test run,
+    // which produces no channel scores to break down in the first place.
+    for (const m of result.channelMetrics ?? []) {
+      dbRun(
+        `INSERT INTO channel_metrics (session_id, channel, metric, label, scored, mean_score,
+                                      windows, coverage, shortfall)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          sessionId,
+          m.channel,
+          m.metric,
+          m.label,
+          m.scored ? 1 : 0,
+          m.meanScore,
+          m.windows,
+          m.coverage,
+          m.shortfall
         ]
       )
     }

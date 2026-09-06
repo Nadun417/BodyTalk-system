@@ -102,6 +102,43 @@ export interface Recommendation {
   body: string
   basisEventTypes: string[]
   phrasing?: Phrasing
+  /**
+   * One sentence naming which measurement inside the channel actually produced this score,
+   * with the numbers in it. Kept apart from `body` because `body` is advice and may be
+   * reworded by the language model, while this is arithmetic and never is.
+   */
+  detail?: string | null
+}
+
+/**
+ * How one channel score was arrived at, broken down by the measurements behind it.
+ *
+ * A channel score is an average of two or three separate measurements, which means the
+ * score by itself hides the thing the user most needs to know. A face score of 66 might be
+ * three middling measurements or two near-perfect ones and a third on the floor, and those
+ * call for completely different advice.
+ *
+ * `shortfall` is how many points out of 100 this measurement pulled its channel down by.
+ * Within a channel these add up exactly to the gap between its score and 100, so the
+ * breakdown can be quoted as fact rather than as an approximation.
+ *
+ * `scored` is the one to watch. A measurement can be recorded without counting toward the
+ * score, and one is: fidgeting is still measured and kept as evidence, but it was found too
+ * unreliable to judge anybody on. Anything with `scored` false must never be shown as the
+ * reason a score came out the way it did, because it had no part in it.
+ */
+export interface ChannelMetric {
+  channel: ScoredChannel
+  metric: string
+  /** How this measurement is described to the user, in plain words. */
+  label: string
+  scored: boolean
+  meanScore: number | null
+  /** How many one-second windows it could be measured in. */
+  windows: number
+  /** That as a fraction of the windows the channel was scored in, 0 to 1. */
+  coverage: number
+  shortfall: number
 }
 
 /**
@@ -120,6 +157,11 @@ export interface WindowScore {
   rawScore: number
   visibility: number | null
   weight: number | null
+  /**
+   * The individual measurements this channel score was averaged from, by their internal
+   * names. Empty for the combined row, which measures nothing of its own.
+   */
+  metrics?: Record<string, number | null>
 }
 
 /** Something noticeable that happened over a stretch of the video. */
@@ -172,6 +214,7 @@ export interface PipelineResult {
   windows: WindowScore[]
   events: AnalysisEvent[]
   recommendations?: Recommendation[]
+  channelMetrics?: ChannelMetric[]
 }
 
 /**

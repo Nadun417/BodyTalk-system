@@ -982,3 +982,101 @@ button.block {
     grid-template-columns: 1fr;
   }
 }
+
+/* ------------------------------------------------- what each channel score was made of */
+
+.breakdown {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+@media (max-width: 860px) {
+  .breakdown {
+    grid-template-columns: 1fr;
+  }
+}
+
+.breakdown-channel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background: var(--surface);
+}
+
+.breakdown-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.breakdown-head .n {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric + .metric {
+  margin-top: 9px;
+}
+
+.metric-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.metric-line .v {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* The measurement that held its channel back most. Marked so the eye lands on it without
+   having to compare three numbers, since that is the whole point of showing this. */
+.metric.driver .metric-line strong {
+  color: var(--text);
+}
+
+.metric.driver .metric-line .v {
+  color: var(--text);
+  font-weight: 650;
+}
+
+/* A measurement that was recorded but did not count toward the score. Shown faintly and
+   labelled, because presenting it like the others would suggest it shaped the number. */
+.metric.unscored {
+  opacity: 0.6;
+}
+
+.metric .bar {
+  height: 6px;
+}
+
+.metric.face .bar > i {
+  background: var(--face);
+}
+
+.metric.pose .bar > i {
+  background: var(--pose);
+}
+
+.metric.hands .bar > i {
+  background: var(--hands);
+}
+
+.metric.unscored .bar > i {
+  background: var(--border-strong);
+}
+
+.advice-detail {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  border-left: 2px solid var(--border-strong);
+  padding-left: 10px;
+}

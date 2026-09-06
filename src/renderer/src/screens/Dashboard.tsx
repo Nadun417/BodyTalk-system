@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { AnalysisEvent, ScoredChannel, Channel } from '@shared/types'
+import type { AnalysisEvent, ChannelMetric, ScoredChannel, Channel } from '@shared/types'
 import type { SessionDetail } from '../../../preload/index'
 import ScoresOverTimeChart from '../components/charts/ScoresOverTimeChart'
 import WeightOverTimeChart from '../components/charts/WeightOverTimeChart'
@@ -33,7 +33,7 @@ export default function Dashboard(): JSX.Element {
 
   if (!detail) return <main className="page" />
 
-  const { session, windows, events, recommendations } = detail
+  const { session, windows, events, recommendations, channelMetrics } = detail
   const channels: ScoredChannel[] = ['face', 'pose', 'hands']
   const windowCount = new Set(windows.map((w) => w.tStartS)).size
 
@@ -70,6 +70,26 @@ export default function Dashboard(): JSX.Element {
       {session.overallSummary && (
         <div className="card">
           <p style={{ margin: 0, fontSize: 15, lineHeight: 1.55 }}>{session.overallSummary}</p>
+        </div>
+      )}
+
+      {channelMetrics.length > 0 && (
+        <div className="card">
+          <p className="card-title">What made up each score</p>
+          <p className="card-note">
+            Every score above is an average of the measurements below it, so a middling score
+            usually means one measurement was low rather than that everything was.
+          </p>
+          <div className="breakdown">
+            {channels.map((c) => (
+              <ChannelBreakdown
+                key={c}
+                channel={c}
+                score={session.channelScores[c]}
+                metrics={channelMetrics.filter((m) => m.channel === c)}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -122,6 +142,7 @@ export default function Dashboard(): JSX.Element {
                   {r.kind === 'maintain' && <span className="badge plain">Keep it up</span>}
                 </div>
                 <div className="muted">{r.body}</div>
+                {r.detail && <div className="advice-detail">{r.detail}</div>}
               </div>
             </div>
           ))}
@@ -320,6 +341,65 @@ function SeeTheMoment({
  * things the analysis records approvingly, which matter: a list made only of faults would read
  * as a telling-off, and people practising for an interview are nervous enough already.
  */
+/**
+ * What one channel score was made of.
+ *
+ * The measurements arrive worst first, which is deliberate: the one at the top is the one
+ * that held the channel back most, and putting it there means the user does not have to
+ * compare three numbers to find it.
+ *
+ * A measurement that did not count toward the score is shown greyed and labelled rather
+ * than hidden. Hiding it would be tidier but less honest, since it was still measured, and
+ * showing it like the others would imply it shaped a number it had no part in.
+ */
+function ChannelBreakdown({
+  channel,
+  score,
+  metrics
+}: {
+  channel: ScoredChannel
+  score: number | null
+  metrics: ChannelMetric[]
+}): JSX.Element {
+  // The measurement most responsible for the shortfall, but only when there is a real
+  // shortfall to explain. Marking one on a channel that scored 98 would invent a fault.
+  const driver = metrics.find((m) => m.scored && m.shortfall >= 1)
+
+  return (
+    <div className="breakdown-channel">
+      <div className="breakdown-head">
+        <strong>{CHANNEL_NAME[channel]}</strong>
+        <span className="n">{score === null ? '—' : Math.round(score)}</span>
+      </div>
+      {metrics.length === 0 ? (
+        <div className="muted" style={{ fontSize: 13 }}>
+          Nothing could be measured here.
+        </div>
+      ) : (
+        metrics.map((m) => (
+          <div
+            key={m.metric}
+            className={`metric ${channel}${m.scored ? '' : ' unscored'}${
+              driver && m.metric === driver.metric ? ' driver' : ''
+            }`}
+          >
+            <div className="metric-line">
+              <strong style={{ fontWeight: m.scored ? 600 : 500 }}>
+                {m.label}
+                {!m.scored && ' (not counted)'}
+              </strong>
+              <span className="v">{m.meanScore === null ? '—' : Math.round(m.meanScore)}</span>
+            </div>
+            <div className="bar">
+              <i style={{ width: `${Math.max(0, Math.min(100, m.meanScore ?? 0))}%` }} />
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
 function Finding({ event }: { event: AnalysisEvent }): JSX.Element {
   const tone =
     event.severity === 'info'

@@ -14,7 +14,8 @@ import {
   getSession,
   getWindowScores,
   getEvents,
-  getRecommendations
+  getRecommendations,
+  getChannelMetrics
 } from '../db/sessionRepo'
 import { getSettings, setSettings } from '../db/settingsRepo'
 import { sourceVideoPath } from '../fs/storage'
@@ -115,7 +116,8 @@ export function registerIpcHandlers(): void {
       session,
       windows: getWindowScores(id),
       events: getEvents(id),
-      recommendations: getRecommendations(id)
+      recommendations: getRecommendations(id),
+      channelMetrics: getChannelMetrics(id)
     }
   })
 

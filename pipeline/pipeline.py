@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Callable
 
 from analysers import FaceAnalyser, HandsAnalyser, PoseAnalyser, WINDOW_S, window_frames
-from feedback import all_events, recommendations, summarise
+from feedback import all_events, metric_reports, recommendations, summarise
 from feedback.phrasing import Rephraser, apply_to
 from fusion import FusionStrategy
 from serialisation.landmarks import (
@@ -170,13 +170,21 @@ class Pipeline:
             on_progress("feedback", 1, 1)
         events = all_events(face_windows, pose_windows, hand_windows)
         channel_windows = {"face": face_windows, "pose": pose_windows, "hands": hand_windows}
+
+        # Take each channel score back apart into the measurements it was averaged from,
+        # before anything is written or worded. A channel score on its own cannot say
+        # whether every measurement was middling or one of them was on the floor, and those
+        # two need opposite advice.
+        reports = metric_reports(channel_windows)
+
         summary = summarise(
             [combined.score for combined in fused],
             channel_windows,
             events,
             header.get("videoDurationS", 0.0),
+            reports,
         )
-        advice = recommendations(events, summary.channel_scores)
+        advice = recommendations(events, summary.channel_scores, metric_reports=reports)
 
         # Rewording, if a model is installed and it was asked for. This only ever changes how
         # the advice is worded: what was noticed, when it happened and the scores are all
@@ -199,6 +207,7 @@ class Pipeline:
             },
             mediapipe_version=header.get("mediapipe", {}).get("version", "unknown"),
             phrasing=phrasing_report,
+            metric_reports=reports,
         )
 
         if out_dir:

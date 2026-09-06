@@ -22,9 +22,16 @@ import json
 from pathlib import Path
 from typing import Sequence
 
+from analysers import CHANNEL_METRICS
+
 #: Bumped whenever the shape below changes. Kept separate from the landmark cache version,
 #: which moves independently.
-SCHEMA_VERSION = 2
+#:
+#: Version 3 added the individual measurements behind each channel score, both per window
+#: and summarised across the session. Before that only the channel score was kept, so
+#: nothing downstream could say whether a face score of 66 meant three middling
+#: measurements or two good ones and a third on the floor.
+SCHEMA_VERSION = 3
 
 CHANNELS = ("face", "pose", "hands")
 
@@ -45,6 +52,7 @@ def build_result(
     fusion_params: dict,
     mediapipe_version: str,
     phrasing: dict | None = None,
+    metric_reports: dict[str, Sequence] | None = None,
 ) -> dict:
     """Assemble the finished analysis into the shape the application reads.
 
@@ -73,6 +81,14 @@ def build_result(
                     "rawScore": _round(window.score, 1),
                     "visibility": _round(window.visibility, 3),
                     "weight": _round(weight, 3),
+                    # The measurements the channel score was averaged from. Kept because
+                    # the score alone cannot say which of them caused it, and because
+                    # choosing better cut-offs later needs the measurement sitting next to
+                    # the score it produced rather than a guess about what it might be.
+                    "metrics": {
+                        spec.attribute: _round(getattr(window, spec.attribute, None), 1)
+                        for spec in CHANNEL_METRICS.get(channel, ())
+                    },
                 }
             )
         if row_start is None:
@@ -87,6 +103,10 @@ def build_result(
                 "rawScore": _round(combined.score if combined is not None else None, 1),
                 "visibility": None,
                 "weight": None,
+                # The combined row measures nothing of its own, so it has no measurements
+                # to list. An empty object rather than a missing field, so that every row
+                # in this list has the same shape.
+                "metrics": {},
             }
         )
 
@@ -99,6 +119,23 @@ def build_result(
         },
         "overallSummary": summary.summary_text,
         "summaryPhrasing": "template",
+        # How each channel score was arrived at, worst offender first. `shortfall` is how
+        # many points out of 100 that measurement pulled its channel down by, and the
+        # shortfalls within a channel add up exactly to the gap between its score and 100.
+        "channelMetrics": [
+            {
+                "channel": report.channel,
+                "metric": report.metric,
+                "label": report.label,
+                "scored": report.scored,
+                "meanScore": _round(report.mean_score, 1),
+                "windows": report.windows,
+                "coverage": _round(report.coverage, 3),
+                "shortfall": _round(report.shortfall, 2),
+            }
+            for channel in CHANNELS
+            for report in (metric_reports or {}).get(channel, ())
+        ],
         "windows": windows,
         "events": [
             {
@@ -122,6 +159,9 @@ def build_result(
                 "body": rec.body,
                 "basisEventTypes": rec.basis_event_types,
                 "phrasing": rec.phrasing,
+                # Never reworded by anything, unlike the body above it: this one carries
+                # numbers, and numbers are not the phrasing step's to touch.
+                "detail": rec.detail,
             }
             for rec in recommendations
         ],

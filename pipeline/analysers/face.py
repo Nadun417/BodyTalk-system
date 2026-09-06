@@ -35,7 +35,16 @@ import statistics as stats
 from collections import deque
 from dataclasses import dataclass
 
-from .base import AnalysisResult, Analyser, Window, dist, presence_rate, scale, spread
+from .base import (
+    AnalysisResult,
+    Analyser,
+    MetricSpec,
+    Window,
+    dist,
+    presence_rate,
+    scale,
+    spread,
+)
 
 # --- positions of the landmarks used, in the 468-point face mesh ----------------------
 NOSE_TIP = 1
@@ -96,6 +105,17 @@ class FaceAnalyser(Analyser):
     """
 
     channel = "face"
+
+    #: The three measurements averaged into the face score, with the wording used when one
+    #: of them has to be named to the user. "Facing the camera" is deliberately not called
+    #: eye contact anywhere in this list: what is actually measured is how square-on the
+    #: head is, and someone can hold their head straight while looking somewhere else
+    #: entirely. Claiming to measure gaze would be claiming more than the landmarks support.
+    METRICS = (
+        MetricSpec("facing", "facing the camera"),
+        MetricSpec("liveliness", "expression variation"),
+        MetricSpec("stability", "head steadiness"),
+    )
 
     def __init__(
         self,

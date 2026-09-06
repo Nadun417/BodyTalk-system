@@ -36,7 +36,16 @@ import math
 import statistics as stats
 from dataclasses import dataclass
 
-from .base import AnalysisResult, Analyser, Window, dist, presence_rate, scale, square
+from .base import (
+    AnalysisResult,
+    Analyser,
+    MetricSpec,
+    Window,
+    dist,
+    presence_rate,
+    scale,
+    square,
+)
 
 # --- positions of the landmarks used ---------------------------------------------------
 WRIST = 0  # in the 21-point hand model
@@ -109,6 +118,20 @@ class HandsAnalyser(Analyser):
     """
 
     channel = "hands"
+
+    #: What this channel measures. Only the first two are averaged into the hand score.
+    #:
+    #: Fidgeting is listed so that it is still reported and still available as evidence,
+    #: but it is marked as not counting, which is the truth: it was withdrawn from the
+    #: score after three attempts to make it reliable failed. Marking it rather than
+    #: dropping it from the list matters, because the code that explains a low score works
+    #: from this list, and a measurement that had no part in a score must never be offered
+    #: as the reason for it.
+    METRICS = (
+        MetricSpec("gesture", "hand gestures"),
+        MetricSpec("touch", "hands away from your face"),
+        MetricSpec("fidget", "fidgeting", scored=False),
+    )
 
     def __init__(
         self,

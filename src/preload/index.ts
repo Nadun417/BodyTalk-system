@@ -11,6 +11,7 @@ import type {
   AnalysisOutcome,
   DeleteOutcome,
   Recommendation,
+  ChannelMetric,
   VideoValidation
 } from '@shared/types'
 
@@ -19,6 +20,8 @@ export interface SessionDetail {
   windows: WindowScore[]
   events: AnalysisEvent[]
   recommendations: Recommendation[]
+  /** What each channel score was made of, so the interface can show why, not just what. */
+  channelMetrics: ChannelMetric[]
 }
 
 /**

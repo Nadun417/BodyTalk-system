@@ -30,6 +30,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Iterable, Sequence
 
+from .metrics import explain_channel
+
 #: How long a gap inside an interval can be before it breaks the interval in two.
 GAP_TOLERANCE_S = 1.0
 #: Intervals ending this close together are treated as one observation.
@@ -375,12 +377,18 @@ class Recommendation:
     basis_event_types: list[str] = field(default_factory=list)
     #: Where the wording of `body` came from: "template" or "llm". `title` is never reworded.
     phrasing: str = "template"
+    #: Which measurement inside the channel actually produced this score, in one sentence
+    #: with the numbers in it. Kept apart from `body` rather than joined onto it because
+    #: `body` is advice and gets reworded, while this is arithmetic and must not be. The
+    #: same separation already applies to an observation's message and its suggestion.
+    detail: str | None = None
 
 
 def recommendations(
     events: Sequence[Event],
     channel_scores: dict[str, float | None],
     limit: int = 3,
+    metric_reports: dict[str, Sequence] | None = None,
 ) -> list[Recommendation]:
     """Rank the channels and turn the top ones into at most three things to try.
 
@@ -395,6 +403,12 @@ def recommendations(
     The ranking is **entirely deterministic**. The same analysis must produce the same
     advice in the same order every time, or the comparison between fusion modes would be
     measuring this function's inconsistency as well as theirs.
+
+    When the per-measurement breakdown is passed in, each suggestion also gets a sentence
+    naming which measurement inside the channel actually produced the score. This matters
+    more than it sounds. "Work on your face and eye contact" is close to useless when the
+    eye contact was fine all the way through and the whole shortfall came from a still
+    expression, and it is the kind of advice that teaches somebody to stop reading.
     """
     pressure: dict[str, float] = {}
     for channel, score in channel_scores.items():
@@ -433,6 +447,7 @@ def recommendations(
                 basis_event_types=sorted(
                     {e.type for e in events if e.channel == channel and SEVERITY_WEIGHT.get(e.severity, 0)}
                 ),
+                detail=_detail_for(channel, channel_scores.get(channel), metric_reports),
             )
         )
 
@@ -458,7 +473,39 @@ def recommendations(
                 kind="maintain",
                 title=f"Keep doing what you did with your {CHANNEL_LABEL.get(best, best)}",
                 body="This was your strongest channel in this session. Whatever you were doing there, keep it.",
+                detail=_strength_for(best, metric_reports),
             )
         )
 
     return out
+
+
+def _detail_for(
+    channel: str,
+    score: float | None,
+    reports: dict[str, Sequence] | None,
+) -> str | None:
+    """The sentence naming which measurement held a channel back, when one did."""
+    if not reports:
+        return None
+    return explain_channel(score, reports.get(channel) or [])
+
+
+def _strength_for(channel: str, reports: dict[str, Sequence] | None) -> str | None:
+    """The sentence naming what went best in a channel, for advice about keeping it up.
+
+    "Keep doing what you did" is hard to act on without knowing what that was. Naming the
+    measurement turns it into something repeatable.
+    """
+    if not reports:
+        return None
+    scored = [
+        r for r in (reports.get(channel) or []) if r.scored and r.mean_score is not None
+    ]
+    if not scored:
+        return None
+    best = max(scored, key=lambda r: (r.mean_score, r.metric))
+    return (
+        f"Your steadiest measurement here was {best.label}, "
+        f"averaging {best.mean_score:.0f} out of 100."
+    )

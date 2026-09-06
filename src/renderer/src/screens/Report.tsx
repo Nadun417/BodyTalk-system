@@ -63,6 +63,7 @@ export default function Report(): JSX.Element {
         session: detail.session,
         events: detail.events,
         recommendations: detail.recommendations,
+        channelMetrics: detail.channelMetrics,
         windowCount: new Set(detail.windows.map((w) => w.tStartS)).size,
         charts: captureCharts()
       })

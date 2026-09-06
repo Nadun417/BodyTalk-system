@@ -29,7 +29,7 @@ import math
 import statistics as stats
 from dataclasses import dataclass
 
-from .base import AnalysisResult, Analyser, Window, dist, scale, square
+from .base import AnalysisResult, Analyser, MetricSpec, Window, dist, scale, square
 
 # --- positions of the landmarks used, in the 33-point body model ----------------------
 NOSE = 0
@@ -101,6 +101,15 @@ class PoseAnalyser(Analyser):
     """
 
     channel = "pose"
+
+    #: The three measurements averaged into the posture score. "Sitting upright" covers
+    #: drifting off a vertical line, including leaning sideways, but not slouching toward
+    #: the camera, which a single lens cannot see reliably. The wording stays within that.
+    METRICS = (
+        MetricSpec("uprightness", "sitting upright"),
+        MetricSpec("levelness", "level shoulders"),
+        MetricSpec("sway", "sitting still"),
+    )
 
     def __init__(
         self,

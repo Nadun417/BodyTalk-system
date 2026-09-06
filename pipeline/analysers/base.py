@@ -32,6 +32,41 @@ class AnalysisResult(TypedDict):
     visibility: float  # 0 to 1, how well this channel could be seen in this window
 
 
+class MetricSpec(NamedTuple):
+    """One named measurement inside a channel, and how to talk about it.
+
+    A channel score is an average of two or three of these, which means the score on its
+    own hides the thing the user most needs to know. A face score of 66 might be three
+    mediocre measurements or two perfect ones and a third sitting at zero, and those call
+    for completely different advice. Telling them apart needs the parts kept and named,
+    which is what this exists for.
+
+    `attribute` is the field on the analyser's window record. `label` is how the
+    measurement is described to the user, so it has to be a plain phrase rather than the
+    internal name: nobody outside this codebase knows what "levelness" means.
+
+    `scored` is the important one. A measurement can be recorded without counting toward
+    the channel score, and one of them is: fidgeting is still computed because it is
+    evidence worth keeping, but it was found too unreliable to judge anybody on. Anything
+    marked False here is reported as an observation and must never be named as a reason a
+    score came out the way it did, because it had no part in it.
+    """
+
+    attribute: str
+    label: str
+    scored: bool = True
+
+
+def metric_values(window, specs: Sequence[MetricSpec]) -> dict[str, float | None]:
+    """Pull the named measurements off one window record into a plain dictionary.
+
+    The three analysers return three different record types with different fields on them.
+    Everything downstream, the saved results and the feedback wording alike, wants to treat
+    them the same way, so this is the one place that knows how to look inside them.
+    """
+    return {spec.attribute: getattr(window, spec.attribute, None) for spec in specs}
+
+
 def scale(x: float, x_bad: float, x_good: float) -> float:
     """Turn a raw measurement into a score from 0 to 100.
 

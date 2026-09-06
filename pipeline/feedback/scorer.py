@@ -24,6 +24,7 @@ import statistics as stats
 from dataclasses import dataclass, field
 from typing import Sequence
 
+from .metrics import explain_channel
 from .rules import Event, clock
 
 
@@ -67,6 +68,7 @@ def summarise(
     channel_windows: dict[str, Sequence],
     events: Sequence[Event],
     duration_s: float,
+    metric_reports: dict[str, Sequence] | None = None,
 ) -> SessionSummary:
     """Reduce a finished analysis to its headline numbers and a plain summary sentence."""
     overall = mean_or_none(fused_scores)
@@ -100,7 +102,9 @@ def summarise(
         overall_score=overall,
         channel_scores=channel_scores,
         facts=facts,
-        summary_text=summary_sentence(overall, channel_scores, events, facts),
+        summary_text=summary_sentence(
+            overall, channel_scores, events, facts, metric_reports
+        ),
     )
 
 
@@ -112,6 +116,7 @@ def summary_sentence(
     channel_scores: dict[str, float | None],
     events: Sequence[Event],
     facts: SessionFacts,
+    metric_reports: dict[str, Sequence] | None = None,
 ) -> str:
     """A couple of sentences describing the session, built from templates.
 
@@ -142,6 +147,19 @@ def summary_sentence(
         parts.append(f"The clearest thing to work on: {longest.message[0].lower()}{longest.message[1:]}")
     else:
         parts.append("Nothing stood out for long enough to be worth flagging, which is a good sign.")
+
+    # Naming the measurement behind the weakest channel, when one stands out. A channel
+    # score is an average of two or three separate measurements, so a middling score
+    # usually means one of them was poor rather than that the whole channel was, and
+    # somebody reading only the score has no way of telling those apart.
+    if metric_reports and facts.weakest_channel:
+        explanation = explain_channel(
+            channel_scores.get(facts.weakest_channel),
+            metric_reports.get(facts.weakest_channel) or [],
+        )
+        if explanation:
+            label = CHANNEL_LABEL.get(facts.weakest_channel, facts.weakest_channel)
+            parts.append(f"Your {label} score came out lowest. {explanation}")
 
     positive = [e for e in events if e.type == "smile"]
     if positive:
