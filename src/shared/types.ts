@@ -13,6 +13,18 @@
 export type FusionMode = 'adaptive' | 'fixed'
 
 /**
+ * How the advice in the feedback is worded.
+ *
+ * `template` uses the sentences the analysis rules write, which is the default and always
+ * works. `llm` asks a small language model, running on this same machine, to reword them.
+ *
+ * Only the advice is ever reworded. What was observed and when it happened are never shown to
+ * the model, and a reworded sentence is checked before it is used, so choosing this changes
+ * the wording of the feedback and nothing about the findings or the scores.
+ */
+export type PhrasingMode = 'template' | 'llm'
+
+/**
  * The three things actually measured. `fused` is what they combine into, not a fourth
  * measurement, which is why it is kept separate: anything that loops over the channels that
  * were observed wants these three and would double-count with `fused` in the list.
@@ -62,13 +74,17 @@ export interface Session {
 /**
  * How a piece of text in the results came to be worded.
  *
- * `template` means it was assembled from fixed wording. The intention is that a small
- * language model can later reword these into something that reads more naturally, and this
- * records which of the two produced any given line. That record matters: the model is only
- * ever allowed to reword a finding the analysis already made, never to decide what the
- * finding is, and without this there would be no way to show afterwards which was which.
+ * `template` means it was assembled from fixed wording; `llm` means a small language model
+ * running on this machine reworded it and its answer passed the checks. That record matters:
+ * the model is only ever allowed to reword advice the analysis already wrote, never to decide
+ * what the finding is, and without this there would be no way to show afterwards which was
+ * which.
+ *
+ * These two spellings are what the analysis actually writes into its results. This said
+ * `'model'` until the rewording was built, at which point the two halves of the app would
+ * have disagreed about the same field.
  */
-export type Phrasing = 'template' | 'model'
+export type Phrasing = 'template' | 'llm'
 
 /**
  * One piece of advice for the user, worked out from the events that were detected.

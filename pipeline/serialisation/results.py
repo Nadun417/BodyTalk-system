@@ -44,6 +44,7 @@ def build_result(
     window_s: float,
     fusion_params: dict,
     mediapipe_version: str,
+    phrasing: dict | None = None,
 ) -> dict:
     """Assemble the finished analysis into the shape the application reads.
 
@@ -108,7 +109,7 @@ def build_result(
                 "severity": event.severity,
                 "message": event.message,
                 "suggestion": event.suggestion,
-                "phrasing": "template",
+                "phrasing": event.phrasing,
             }
             for event in events
         ],
@@ -120,7 +121,7 @@ def build_result(
                 "title": rec.title,
                 "body": rec.body,
                 "basisEventTypes": rec.basis_event_types,
-                "phrasing": "template",
+                "phrasing": rec.phrasing,
             }
             for rec in recommendations
         ],
@@ -129,7 +130,10 @@ def build_result(
             "windowS": window_s,
             "fusionParams": fusion_params,
             "mediapipe": {"version": mediapipe_version},
-            "llm": {"model": None, "used": False},
+            # What, if anything, a language model contributed, and how often its wording had
+            # to be refused. The refusal count is the honest half of this: it is the
+            # difference between saying a model was used and showing how it was governed.
+            "llm": phrasing or {"used": False, "reworded": 0, "refused": 0, "why": "not switched on"},
             "windowsScored": summary.facts.windows_scored,
             "windowsSkipped": summary.facts.windows_skipped,
         },

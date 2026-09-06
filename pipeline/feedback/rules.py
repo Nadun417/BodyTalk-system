@@ -47,6 +47,10 @@ class Event:
     severity: str  # "info" | "low" | "medium"
     message: str
     suggestion: str
+    #: Where the wording of `suggestion` came from: "template" for the sentence written here,
+    #: "llm" if a language model reworded it and the result passed its checks. `message` is
+    #: never reworded, because it carries the times and the claim about what was seen.
+    phrasing: str = "template"
 
     @property
     def duration_s(self) -> float:
@@ -369,6 +373,8 @@ class Recommendation:
     #: which kinds of observation this advice was built from, so a reader of the saved
     #: result can trace a suggestion back to the events that produced it
     basis_event_types: list[str] = field(default_factory=list)
+    #: Where the wording of `body` came from: "template" or "llm". `title` is never reworded.
+    phrasing: str = "template"
 
 
 def recommendations(

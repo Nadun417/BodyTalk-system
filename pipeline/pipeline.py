@@ -26,6 +26,7 @@ from typing import Callable
 
 from analysers import FaceAnalyser, HandsAnalyser, PoseAnalyser, WINDOW_S, window_frames
 from feedback import all_events, recommendations, summarise
+from feedback.phrasing import Rephraser, apply_to
 from fusion import FusionStrategy
 from serialisation.landmarks import (
     aspect_of,
@@ -51,9 +52,17 @@ class Pipeline:
     one it was handed.
     """
 
-    def __init__(self, fusion_strategy: FusionStrategy, window_s: float = WINDOW_S) -> None:
+    def __init__(
+        self,
+        fusion_strategy: FusionStrategy,
+        window_s: float = WINDOW_S,
+        rephraser: "Rephraser | None" = None,
+    ) -> None:
         self.fusion = fusion_strategy
         self.window_s = window_s
+        #: Optional, and off unless one is handed in. When absent the feedback keeps the
+        #: wording the rules gave it, which is the ordinary case and always a complete result.
+        self.rephraser = rephraser
 
     # ------------------------------------------------------------------ stages 1 and 2
 
@@ -169,6 +178,12 @@ class Pipeline:
         )
         advice = recommendations(events, summary.channel_scores)
 
+        # Rewording, if a model is installed and it was asked for. This only ever changes how
+        # the advice is worded: what was noticed, when it happened and the scores are all
+        # settled by this point and none of them are shown to the model. If anything is
+        # missing or the reworded sentence fails its checks, the original wording stays.
+        phrasing_report = apply_to(events, advice, self.rephraser)
+
         result = build_result(
             fusion_mode=getattr(self.fusion, "name", "unknown"),
             fused=fused,
@@ -183,6 +198,7 @@ class Pipeline:
                 "vFloor": getattr(self.fusion, "v_floor", None),
             },
             mediapipe_version=header.get("mediapipe", {}).get("version", "unknown"),
+            phrasing=phrasing_report,
         )
 
         if out_dir:

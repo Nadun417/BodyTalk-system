@@ -1,7 +1,7 @@
 import { ipcMain, dialog, BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { join, dirname } from 'path'
 import { IpcChannels } from '@shared/ipcChannels'
-import type { AppSettings, FusionMode, ProgressUpdate } from '@shared/types'
+import type { AppSettings, FusionMode, PhrasingMode, ProgressUpdate } from '@shared/types'
 import {
   createSession,
   validateVideo,
@@ -64,7 +64,13 @@ export function registerIpcHandlers(): void {
     IpcChannels.startAnalysis,
     async (
       e: IpcMainInvokeEvent,
-      args: { sessionId: number; fusionMode: FusionMode; videoPath?: string; selfTest?: boolean }
+      args: {
+        sessionId: number
+        fusionMode: FusionMode
+        videoPath?: string
+        phrasing?: PhrasingMode
+        selfTest?: boolean
+      }
     ) => {
       const sender = e.sender
       const onProgress = (update: ProgressUpdate): void => {
@@ -80,6 +86,7 @@ export function registerIpcHandlers(): void {
           fusionMode: args.fusionMode,
           videoPath: args.videoPath,
           analysisFps: settings.analysisFps,
+          phrasing: args.phrasing,
           selfTest: args.selfTest,
           onProgress
         })

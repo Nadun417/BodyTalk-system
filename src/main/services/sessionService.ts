@@ -14,7 +14,13 @@ import {
   sourceVideoPath
 } from '../fs/storage'
 import { runPipeline, cancelPipeline, validateVideoFile } from '../pipeline/pythonBridge'
-import type { FusionMode, PipelineResult, ProgressUpdate, VideoValidation } from '@shared/types'
+import type {
+  FusionMode,
+  PhrasingMode,
+  PipelineResult,
+  ProgressUpdate,
+  VideoValidation
+} from '@shared/types'
 
 /**
  * Check whether an uploaded video is worth analysing, before spending minutes on it.
@@ -92,6 +98,7 @@ export interface AnalyseOptions {
   fusionMode: FusionMode
   videoPath?: string
   analysisFps?: number
+  phrasing?: PhrasingMode
   selfTest?: boolean
   onProgress: (update: ProgressUpdate) => void
 }
@@ -124,6 +131,7 @@ export async function analyse(opts: AnalyseOptions): Promise<PipelineResult> {
       // going, and it is the copy that will still be here when the session is reopened.
       videoPath: sourceVideoPath(opts.sessionId) ?? opts.videoPath,
       analysisFps: opts.analysisFps,
+      phrasing: opts.phrasing,
       // Made again rather than assumed. A session created in an earlier run of the app
       // still has its row in the database, but the folder can have been cleared out from
       // underneath it, and the pipeline cannot write into a folder that is not there.

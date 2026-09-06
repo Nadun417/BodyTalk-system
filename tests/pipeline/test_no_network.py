@@ -126,3 +126,25 @@ def test_the_detector_carries_its_own_model(no_network):
         detector.detect(blank)
 
     assert no_network == []
+
+
+@pytest.mark.skipif(
+    not list((REPO_ROOT / "pipeline" / "models").glob("*.gguf")),
+    reason="no language model is installed on this machine",
+)
+def test_the_language_model_reaches_nowhere(no_network):
+    """Rewording the advice with the local model must not phone anywhere either.
+
+    This is the newest way the promise could quietly break. Libraries that run language models
+    are in the habit of fetching weights, checking for updates or reporting usage, and the
+    whole point of choosing one that runs on the machine is that none of that happens. The
+    model file is already on disk; loading it and using it should touch nothing else.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "pipeline"))
+    from feedback.phrasing import Rephraser
+
+    rephraser = Rephraser()
+    result = rephraser.rephrase("Keep your hands visible so natural gestures come through.")
+
+    assert result.text
+    assert no_network == []

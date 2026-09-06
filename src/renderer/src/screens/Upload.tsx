@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { FusionMode, VideoValidation } from '@shared/types'
+import type { FusionMode, PhrasingMode, VideoValidation } from '@shared/types'
 import { clock } from '../lib/format'
 
 /**
@@ -18,6 +18,7 @@ import { clock } from '../lib/format'
 export default function Upload(): JSX.Element {
   const [videoPath, setVideoPath] = useState<string | null>(null)
   const [fusionMode, setFusionMode] = useState<FusionMode>('adaptive')
+  const [phrasing, setPhrasing] = useState<PhrasingMode>('template')
   const [checking, setChecking] = useState(false)
   const [preparing, setPreparing] = useState(false)
   const [check, setCheck] = useState<VideoValidation | null>(null)
@@ -77,7 +78,7 @@ export default function Upload(): JSX.Element {
       return
     }
     navigate(`/processing/${res.sessionId}`, {
-      state: { videoPath, fusionMode, selfTest: false }
+      state: { videoPath, fusionMode, phrasing, selfTest: false }
     })
   }
 
@@ -155,6 +156,22 @@ export default function Upload(): JSX.Element {
         onSelect={() => setFusionMode('fixed')}
         title="Fixed"
         note="Equal weighting, used for evaluation."
+      />
+
+      <h2 style={{ margin: '26px 0 10px' }}>Feedback wording</h2>
+
+      <Choice
+        selected={phrasing === 'template'}
+        onSelect={() => setPhrasing('template')}
+        title="Standard"
+        note="The wording the analysis writes itself."
+      />
+      <Choice
+        selected={phrasing === 'llm'}
+        onSelect={() => setPhrasing('llm')}
+        title="Reworded on this device"
+        note="A small language model rewords the advice. What was noticed, and when, is never changed."
+        tag="Needs the model installed"
       />
 
       <button

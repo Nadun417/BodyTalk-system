@@ -17,6 +17,14 @@
 #
 # It is safe to run more than once. If everything is already in place it checks and says so
 # rather than downloading anything again.
+#
+# Add -WithFeedbackModel to also fetch the optional language model that rewords the feedback.
+# That is a further gigabyte and is not needed: without it the feedback keeps the wording the
+# analysis writes itself, which is the default in the app.
+
+param(
+    [switch]$WithFeedbackModel
+)
 
 # Deliberately not set to stop on errors. This script's whole job is driving other programs,
 # and those write ordinary progress and warnings to the error stream as they go. Treating that
@@ -106,6 +114,35 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host 'The download did not finish. Check the internet connection and run this again.' -ForegroundColor Red
     Write-Host 'Nothing is lost by running it a second time.'
     exit 1
+}
+
+# The optional extra: a language model that rewords the feedback. Left out unless asked for,
+# because it is another gigabyte and the application is complete without it. The feedback is
+# written either way; this only changes how it is worded.
+if ($WithFeedbackModel) {
+    Write-Host ''
+    Write-Host 'Adding the optional feedback model. This downloads about 1 GB.'
+    & $venvPython -m pip install -r (Join-Path $here 'requirements-llm.txt') `
+        --only-binary=:all: `
+        --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host 'The language model library could not be installed. Video analysis is unaffected.' -ForegroundColor Yellow
+    } else {
+        $models = Join-Path $here 'models'
+        New-Item -ItemType Directory -Force $models | Out-Null
+        $target = Join-Path $models 'qwen2.5-1.5b-instruct-q4_k_m.gguf'
+        if (Test-Path $target) {
+            Write-Host 'The model file is already here.' -ForegroundColor Green
+        } else {
+            $source = 'https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf'
+            try {
+                Invoke-WebRequest -Uri $source -OutFile $target
+                Write-Host 'The feedback model is installed.' -ForegroundColor Green
+            } catch {
+                Write-Host 'The model could not be downloaded. Video analysis is unaffected.' -ForegroundColor Yellow
+            }
+        }
+    }
 }
 
 Write-Host ''

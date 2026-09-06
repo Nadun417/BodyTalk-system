@@ -3,7 +3,13 @@ import { createInterface } from 'readline'
 import { join } from 'path'
 import { existsSync } from 'fs'
 import { app } from 'electron'
-import type { FusionMode, PipelineResult, ProgressUpdate, VideoValidation } from '@shared/types'
+import type {
+  FusionMode,
+  PhrasingMode,
+  PipelineResult,
+  ProgressUpdate,
+  VideoValidation
+} from '@shared/types'
 
 /**
  * Starting the Python analysis program and listening to what it says back.
@@ -165,6 +171,8 @@ export interface RunPipelineOptions {
    * behind without ever being told.
    */
   outDir?: string
+  /** How the advice should be worded. Defaults to the rules' own sentences. */
+  phrasing?: PhrasingMode
   /** Run the dependency-free self-test (no MediaPipe needed). */
   selfTest?: boolean
   onProgress: (update: ProgressUpdate) => void
@@ -181,6 +189,7 @@ export function runPipeline(opts: RunPipelineOptions): Promise<PipelineResult> {
       if (opts.videoPath) args.push('--video', opts.videoPath)
       if (opts.analysisFps) args.push('--fps', String(opts.analysisFps))
       if (opts.outDir) args.push('--out', opts.outDir)
+      if (opts.phrasing) args.push('--phrasing', opts.phrasing)
     }
 
     const child = spawn(pythonExecutable(), args, { cwd: pipelineDir() })

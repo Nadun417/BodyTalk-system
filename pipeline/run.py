@@ -279,7 +279,13 @@ def run_pipeline(args: argparse.Namespace) -> dict:
     def report(stage: str, done: int, total: int) -> None:
         emit({"type": "progress", "stage": stage, "done": done, "total": total})
 
-    pipeline = Pipeline(make_strategy(args.fusion))
+    rephraser = None
+    if getattr(args, "phrasing", "template") == "llm":
+        from feedback.phrasing import Rephraser
+
+        rephraser = Rephraser()
+
+    pipeline = Pipeline(make_strategy(args.fusion), rephraser=rephraser)
     result = pipeline.run(
         str(video),
         fps=args.fps,
@@ -326,6 +332,17 @@ def main() -> int:
         default=1,
         choices=[0, 1, 2],
         help="MediaPipe model_complexity: 0 fastest, 2 most accurate (default 1)",
+    )
+    parser.add_argument(
+        "--phrasing",
+        choices=["template", "llm"],
+        default="template",
+        help=(
+            "how the advice is worded: 'template' uses the sentences the rules write, 'llm' "
+            "asks a local language model to reword them. Only the advice is ever reworded, "
+            "never what was observed or when. Falls back to the templates if no model is "
+            "installed or its answer does not pass its checks"
+        ),
     )
     parser.add_argument(
         "--fresh",

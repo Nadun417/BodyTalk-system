@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
-import type { FusionMode, ProgressUpdate } from '@shared/types'
+import type { FusionMode, PhrasingMode, ProgressUpdate } from '@shared/types'
 import { clock } from '../lib/format'
 
 interface ProcessingState {
   selfTest?: boolean
   fusionMode?: FusionMode
+  phrasing?: PhrasingMode
   videoPath?: string
 }
 
@@ -62,6 +63,7 @@ export default function Processing(): JSX.Element {
           sessionId,
           fusionMode: state.fusionMode ?? 'adaptive',
           videoPath: state.videoPath,
+          phrasing: state.phrasing,
           selfTest: state.selfTest
         })
         .then((outcome) => {

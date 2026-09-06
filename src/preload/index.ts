@@ -3,6 +3,7 @@ import { IpcChannels } from '@shared/ipcChannels'
 import type {
   AppSettings,
   FusionMode,
+  PhrasingMode,
   ProgressUpdate,
   Session,
   WindowScore,
@@ -47,6 +48,7 @@ const api = {
     sessionId: number
     fusionMode: FusionMode
     videoPath?: string
+    phrasing?: PhrasingMode
     selfTest?: boolean
   }): Promise<AnalysisOutcome> => ipcRenderer.invoke(IpcChannels.startAnalysis, args),
 

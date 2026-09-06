@@ -1,0 +1,15 @@
+# Optional. Only needed to have the feedback reworded by a language model on this machine.
+#
+# The analysis works fully without any of this: the feedback keeps the wording the rules
+# write, which is the default. This adds the option of rewording it, and nothing else.
+#
+# Installing this needs an extra place to look, because the project publishes only source
+# code to the usual index and building that from source would need a C++ compiler. Prebuilt
+# Windows builds live at the address below, which is the project's own:
+#
+#   pip install -r requirements-llm.txt \
+#       --only-binary=:all: \
+#       --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+#
+# Pinned, like the rest, so a run months from now behaves as it did during testing.
+llama-cpp-python==0.3.19
