@@ -1,9 +1,16 @@
 import { dbAll, dbRun, persist } from './database'
 import type { AppSettings } from '@shared/types'
 
-// Still to confirm once there is real timing data: how many frames a second to analyse by
-// default, and how short a video is too short to say anything useful about.
-const DEFAULTS: AppSettings = { analysisFps: 6, reportSavePath: null, minDurationS: 60 }
+// The shortest video accepted by default. This has to match the pipeline's own default, because
+// the upload screen checks a file by asking the pipeline, and a mismatch would mean the app
+// promised to accept something the check then refused.
+//
+// It moved from sixty seconds to fifty-five on 20 September 2026, after the first recordings
+// supplied by somebody other than the author all landed between 57 and 60 seconds and were
+// refused over margins as small as three tenths of a second.
+//
+// Still to confirm once there is real timing data: how many frames a second to analyse by default.
+const DEFAULTS: AppSettings = { analysisFps: 6, reportSavePath: null, minDurationS: 55 }
 
 export function getSettings(): AppSettings {
   const rows = dbAll<{ key: string; value: string }>(`SELECT key, value FROM settings`)

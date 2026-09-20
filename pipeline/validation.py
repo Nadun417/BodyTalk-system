@@ -42,12 +42,22 @@ from pathlib import Path
 from typing import NamedTuple
 
 #: How short a clip is allowed to be, and how much of that the user is allowed to change.
-#: The default is sixty seconds. The feedback rules look for behaviour that carries on for
-#: several seconds at a time, so a very short clip produces a score with almost nothing
-#: behind it. Thirty seconds is the point below which that stops being worth reporting at
-#: all, and a hundred and eighty is as high as the bar can sensibly be set before ordinary
-#: practice answers start being turned away.
-DEFAULT_MIN_DURATION_S = 60.0
+#: The feedback rules look for behaviour that carries on for several seconds at a time, so a
+#: very short clip produces a score with almost nothing behind it. Thirty seconds is the point
+#: below which that stops being worth reporting at all, and a hundred and eighty is as high as
+#: the bar can sensibly be set before ordinary practice answers start being turned away.
+#:
+#: The default was sixty seconds until 20 September 2026, chosen on reasoning rather than on
+#: any measurement of what practice recordings actually look like. The first footage supplied
+#: by anyone other than the author then arrived as five clips of 57.2, 59.6, 59.7, 59.7 and
+#: 59.7 seconds, and a sixty second floor refused every one of them, four by less than half a
+#: second. Somebody recording a one minute answer on a phone lands just under a minute far
+#: more often than just over, because they stop talking and then stop recording.
+#:
+#: Fifty-five keeps almost all of the evidence a rule needs while no longer throwing away
+#: usable recordings over a rounding margin. It is a deliberate trade: a clip at the new floor
+#: gives the sustained-behaviour rules five seconds less to work with than before.
+DEFAULT_MIN_DURATION_S = 55.0
 MIN_DURATION_FLOOR_S = 30.0
 MIN_DURATION_CEILING_S = 180.0
 
