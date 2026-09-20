@@ -291,13 +291,31 @@ def hand_events(
     gesture_low: float = 0.15,
     gesture_high: float = 0.5,
 ) -> list[Event]:
-    """Hands out of shot, too still, too busy, fidgeting, and hands at the face."""
+    """Hands not visible, too still, too busy, fidgeting, and hands at the face."""
     events: list[Event] = []
 
-    # Measured on visibility rather than on a score, because when the hands are out of
-    # frame there is no score to test. This is the one observation about framing rather
-    # than behaviour, which is why it is phrased as a camera suggestion and marked as
-    # information rather than as something done badly.
+    # Measured on visibility rather than on a score, because when the hands cannot be
+    # seen there is no score to test. Marked as information rather than as something done
+    # badly, since not being visible is not a mistake the person has made.
+    #
+    # The wording here is deliberately about what was seen and not about why. It used to
+    # say the hands were "out of frame", which sounds harmless but asserts a cause the
+    # data cannot establish. All the visibility figure tells us is that the hand detector
+    # found nothing. It says nothing about where the hands actually were.
+    #
+    # That distinction turned out to matter. Checking every occurrence across the test
+    # footage found four where the hands genuinely had left the shot, and one where they
+    # had not: on that recording the pose model placed both wrists inside the frame, with
+    # high confidence, in every single frame of the thirty-eight seconds the app spent
+    # telling the person to fix their framing. Their framing was fine. The hand detector
+    # simply failed on that posture, and the advice pointed the wrong way, because acting
+    # on it would have meant changing a camera setup that was already correct.
+    #
+    # It was the only piece of feedback in the system that explained an observation
+    # rather than reporting one, and so the only one that could be flatly wrong rather
+    # than merely unhelpful. Saying the hands could not be seen is true in all five cases.
+    # The suggestion now names the two things a person can actually check, instead of
+    # presuming which of them is at fault.
     events += _events(
         hand_windows,
         lambda w: w.visibility < 0.2,
@@ -305,8 +323,9 @@ def hand_events(
         "hands",
         "hands_out_of_frame",
         "info",
-        lambda a, b: f"Your hands were out of frame between {clock(a)} and {clock(b)}.",
-        "Frame yourself so your hands are visible. Natural gestures support what you say.",
+        lambda a, b: f"Your hands could not be seen between {clock(a)} and {clock(b)}.",
+        "Check your hands are inside the frame and well lit. Natural gestures support "
+        "what you say.",
     )
 
     events += _events(

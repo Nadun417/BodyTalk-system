@@ -172,9 +172,15 @@ export interface AnalysisEvent {
   type: string
   severity: Severity
   /**
-   * Describes what was visible and nothing more. "Your hands were out of shot" is fine.
+   * Describes what was visible and nothing more. "Your hands could not be seen" is fine.
    * Anything about how the person seemed, felt, or would fare in a real interview is not,
    * because none of it can be told apart from the alternatives by looking at landmarks.
+   *
+   * The same caution applies to explaining an observation rather than reporting it. Saying
+   * the hands were "out of shot" sounds like a description but is really a guess at a
+   * cause, and on at least one real recording that guess was wrong while the wording gave
+   * no hint it might be. Report what the detector saw, and leave the cause to the person
+   * who was actually in the room.
    */
   message: string
   suggestion: string

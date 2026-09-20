@@ -170,12 +170,36 @@ def test_leaning_to_one_side_needs_ten_seconds():
 
 
 def test_hands_out_of_frame_is_measured_on_visibility_not_on_a_score():
-    """When the hands are out of shot there is no score to test, so this rule reads the
-    visibility instead. It is the one observation about framing rather than behaviour."""
+    """When the hands cannot be seen there is no score to test, so this rule reads the
+    visibility instead."""
     windows = seconds(15, HandW, visibility=0.0, gesture_raw=None, fidget=None, touch_raw=None, score=None)
     found = [e for e in hand_events(windows) if e.type == "hands_out_of_frame"]
     assert len(found) == 1
     assert found[0].severity == "info"
+
+
+def test_unseen_hands_are_not_described_as_being_outside_the_frame():
+    """Low hand visibility means the detector found nothing. It does not mean the hands
+    left the shot, and on real footage those two came apart: one recording reported hands
+    out of frame for thirty-eight seconds while the pose model held both wrists inside the
+    frame, confidently, the whole time. Telling somebody to fix framing that was never
+    broken is worse than saying nothing, so the wording has to stay on what was seen.
+
+    This test guards the wording rather than the detection, because the detection is
+    right and it was only ever the explanation that was wrong."""
+    windows = seconds(15, HandW, visibility=0.0, gesture_raw=None, fidget=None, touch_raw=None, score=None)
+    found = [e for e in hand_events(windows) if e.type == "hands_out_of_frame"]
+    assert len(found) == 1
+    said = f"{found[0].message} {found[0].suggestion}".lower()
+    assert "could not be seen" in found[0].message.lower()
+    # The message must not claim to know where the hands were. The suggestion may still
+    # invite the person to check their framing, because checking is not the same as being
+    # told that framing is the problem.
+    for asserted_cause in ("out of frame", "out of shot", "off screen", "left the frame"):
+        assert asserted_cause not in found[0].message.lower(), (
+            f"the message asserts a cause the visibility figure cannot establish: {asserted_cause}"
+        )
+    assert "frame" in said, "the suggestion should still help the person check their setup"
 
 
 def test_still_hands_need_a_full_thirty_seconds():
