@@ -1,6 +1,6 @@
-import { protocol, net } from 'electron'
-import { pathToFileURL } from 'url'
+import { protocol } from 'electron'
 import { sourceVideoPath } from './storage'
+import { videoFileResponse } from './videoResponse'
 
 /**
  * Lets the results screen play a session's video without ever handling a file path.
@@ -15,10 +15,12 @@ import { sourceVideoPath } from './storage'
  * and nothing outside the sessions folder can be reached, because the only thing taken from
  * the address is a session number. There is no path in it to point somewhere else with.
  *
- * Handing the file over through Electron's own fetch rather than reading it here matters
- * more than it looks: it answers requests for part of a file, which is what lets the player
- * jump to the middle of a recording without loading all of it first. Jumping to a moment is
- * the whole point of the screen.
+ * How the file is handed over matters more than it looks. The player has to be able to ask
+ * for part of a file, which is what lets it jump to the middle of a recording without loading
+ * all of it first, and jumping to a moment is the whole point of the screen. This used to pass
+ * the request on to Electron's own fetch in the belief that it answered those requests. It
+ * does not for local files, and every jump went back to the start of the video. The partial
+ * answers are now built in `videoResponse.ts`, which explains the details.
  */
 export const VIDEO_SCHEME = 'bodytalk'
 
@@ -54,6 +56,6 @@ export function serveSessionVideos(): void {
     // state, not a fault, and the screen says so rather than showing a broken player.
     if (!file) return new Response('No video saved for this session', { status: 404 })
 
-    return net.fetch(pathToFileURL(file).toString(), { headers: request.headers })
+    return videoFileResponse(file, request.headers.get('range'))
   })
 }
