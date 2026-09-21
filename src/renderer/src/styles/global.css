@@ -727,17 +727,48 @@ button.block {
 
 /* ---------------------------------------------------------------- video */
 
+/*
+  The frame takes the shape of the recording it shows, so the whole picture is always in view.
+
+  Most practice videos are filmed on a phone held upright, which makes them tall and narrow,
+  while the frame used to be a fixed landscape box. A picture that does not match its frame
+  has to either be cut down to fit or leave empty bars around it. Cutting is not acceptable
+  here: the bottom of the picture is where the hands and shoulders are, and this screen exists
+  so a finding about them can be checked against what the camera saw.
+
+  --shape is the recording's width divided by its height, set by the screen once the video
+  has said how big it is. Until then, and when there is no video at all, it is the old
+  landscape shape. The frame is as wide as the column allows, unless that would make it taller
+  than 480 pixels or about two thirds of the window, in which case it is narrowed until it is
+  not. The height then follows from the width and the shape, so the frame and the picture
+  always agree.
+*/
 .player {
+  --shape: 1.6;
+  width: min(100%, calc(min(480px, 65vh) * var(--shape)));
+  aspect-ratio: var(--shape);
+  margin-inline: auto;
   background: #0d1117;
   border-radius: var(--radius);
   overflow: hidden;
   position: relative;
-  aspect-ratio: 16 / 10;
   display: grid;
   place-items: center;
 }
 
+/*
+  Pinned to the frame's edges rather than sized as part of its layout. Left in the layout, the
+  video asked for its natural height at the full width of the frame, the frame grew a row that
+  tall to hold it, and everything below the frame's bottom edge was cut off. On an upright
+  phone recording that was about two thirds of the picture.
+
+  Fitting the picture inside the element stays on as a safeguard. With the frame already in
+  the recording's shape it has nothing to do, but if the two ever disagree slightly the
+  picture gains a thin border rather than losing an edge.
+*/
 .player video {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;

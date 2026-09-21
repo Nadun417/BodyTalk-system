@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { AnalysisEvent, ChannelMetric, ScoredChannel, Channel } from '@shared/types'
 import type { SessionDetail } from '../../../preload/index'
@@ -185,6 +185,9 @@ function ScoreCard({
  * The marks on the bar under the video are the same moments as the list beside it, in the
  * colour of the channel each came from, so the shape of the session is visible on the timeline
  * itself before a word of it is read.
+ *
+ * The frame around the video takes the recording's own shape, tall for a phone held upright
+ * and wide for a camera, so that none of the picture is ever cut off to fit.
  */
 function SeeTheMoment({
   videoUrl,
@@ -200,6 +203,15 @@ function SeeTheMoment({
   const [length, setLength] = useState(durationS)
   const [playing, setPlaying] = useState(false)
   const [current, setCurrent] = useState<number | null>(null)
+  // The recording's width divided by its height, once the video has said how big it is. The
+  // frame takes this shape so the whole picture fits in it; see the note on `.player` in the
+  // stylesheet for why that matters on this screen in particular.
+  const [shape, setShape] = useState<number | null>(null)
+
+  const measure = (el: HTMLVideoElement): void => {
+    setLength(el.duration)
+    if (el.videoWidth > 0 && el.videoHeight > 0) setShape(el.videoWidth / el.videoHeight)
+  }
 
   const jumpTo = (seconds: number, index: number | null): void => {
     const el = video.current
@@ -227,12 +239,15 @@ function SeeTheMoment({
 
       <div className="moment-grid">
         <div>
-          <div className="player">
+          <div
+            className="player"
+            style={shape ? ({ '--shape': shape } as CSSProperties) : undefined}
+          >
             {videoUrl ? (
               <video
                 ref={video}
                 src={videoUrl}
-                onLoadedMetadata={(e) => setLength(e.currentTarget.duration)}
+                onLoadedMetadata={(e) => measure(e.currentTarget)}
                 onTimeUpdate={(e) => setAt(e.currentTarget.currentTime)}
                 onPlay={() => setPlaying(true)}
                 onPause={() => setPlaying(false)}
