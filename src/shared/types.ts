@@ -48,6 +48,31 @@ export type Channel = ScoredChannel | 'fused'
  */
 export type ChannelScores = Record<ScoredChannel, number | null>
 
+/**
+ * How much of the recording one channel's score actually rests on.
+ *
+ * A channel's score is the average over the seconds in which it could be measured, so a
+ * channel seen for one second of a seventy-second recording gets a score from that single
+ * second, and without this it would look exactly like a score built from the whole
+ * recording. Whether that is too little is decided by the analysis, once, and carried here
+ * as `thin`, so the results screen and the PDF can never disagree about it.
+ */
+export interface ChannelCoverage {
+  /** Seconds of the recording in which this channel could be scored. */
+  windows: number
+  /** Seconds of the recording that were analysed. */
+  of: number
+  /** Too little of the recording to present the score as a finding about the whole session. */
+  thin: boolean
+}
+
+/**
+ * Null for a channel means the coverage was not recorded, which is the case for every
+ * session analysed before it was stored. Those sessions show their scores without comment,
+ * because nothing was measured that could justify one.
+ */
+export type ChannelCoverages = Record<ScoredChannel, ChannelCoverage | null>
+
 export type SessionStatus = 'pending' | 'processing' | 'complete' | 'error' | 'cancelled'
 
 export type Severity = 'info' | 'low' | 'medium' | 'high'
@@ -62,6 +87,7 @@ export interface Session {
   fusionMode: FusionMode
   overallScore: number | null
   channelScores: ChannelScores
+  channelCoverage: ChannelCoverages
   /**
    * The sentence that sums up the session, written by the analysis from what it found.
    * Null for sessions recorded before it was stored, and for the self-test, which does not
@@ -215,6 +241,7 @@ export interface PipelineResult {
   fusionMode: FusionMode
   overallScore: number
   channelScores?: ChannelScores
+  channelCoverage?: Record<ScoredChannel, ChannelCoverage>
   overallSummary?: string
   summaryPhrasing?: Phrasing
   windows: WindowScore[]

@@ -334,3 +334,69 @@ def test_a_channel_is_never_both_the_thing_to_fix_and_the_thing_to_keep():
     improve = {r.channel for r in result if r.kind == "improve"}
     maintain = {r.channel for r in result if r.kind == "maintain"}
     assert not (improve & maintain)
+
+
+# ----------------------------------------------------- scores resting on too little video
+
+
+def _barely_seen_hands(seen, total, score=90.0):
+    """A hand channel that could be scored in only `seen` of `total` seconds."""
+    return seconds(seen, HandW, score=score) + [
+        HandW(t_start_s=float(t), t_end_s=float(t + 1), visibility=0.0, score=None)
+        for t in range(seen, total)
+    ]
+
+
+def test_a_channel_seen_for_one_second_is_flagged_and_not_ranked():
+    """Caught on real footage. A hand score built from one second of a 73-second recording
+    was named the lowest channel, and that one second was then explained as though it
+    described the whole session."""
+    summary = summarise(
+        [80.0] * 73,
+        {
+            "face": seconds(73, FaceW, score=90.0),
+            "pose": seconds(73, PoseW, score=85.0),
+            "hands": _barely_seen_hands(1, 73, score=40.0),
+        },
+        [],
+        73.0,
+    )
+    assert summary.facts.channel_windows["hands"] == 1
+    assert summary.facts.thin_channels == ["hands"]
+    # Still shown, because hiding the score would also hide that the channel was barely seen.
+    assert summary.channel_scores["hands"] == 40.0
+    # But never named the lowest, even though it is.
+    assert summary.facts.weakest_channel == "pose"
+    assert "Only 1 of the 73 seconds could be scored for hand movement" in summary.summary_text
+    assert "hand movement score came out lowest" not in summary.summary_text
+
+
+def test_a_barely_seen_channel_is_never_called_the_strongest():
+    """The closing advice says "this was your strongest channel". Resting that on five seconds
+    of a minute would be claiming far more than was seen."""
+    summary = summarise(
+        [80.0] * 60,
+        {"face": seconds(60, FaceW, score=70.0), "hands": _barely_seen_hands(5, 60, score=100.0)},
+        [],
+        60.0,
+    )
+    assert summary.facts.strongest_channel == "face"
+    advice = recommendations([], summary.channel_scores, thin_channels=summary.facts.thin_channels)
+    assert [r.channel for r in advice if r.kind == "maintain"] == ["face"]
+    # The same call without the thin channels named picks the barely-seen one, which is the
+    # mistake this guards against, so the test above would catch it coming back.
+    unguarded = recommendations([], summary.channel_scores)
+    assert [r.channel for r in unguarded if r.kind == "maintain"] == ["hands"]
+
+
+def test_a_channel_seen_for_half_the_recording_is_treated_like_any_other():
+    """The line is less than half. At exactly half, the score is a finding like any other."""
+    summary = summarise(
+        [80.0] * 60,
+        {"face": seconds(60, FaceW, score=90.0), "hands": _barely_seen_hands(30, 60, score=50.0)},
+        [],
+        60.0,
+    )
+    assert summary.facts.thin_channels == []
+    assert summary.facts.weakest_channel == "hands"
+    assert "treat that score as a hint" not in summary.summary_text

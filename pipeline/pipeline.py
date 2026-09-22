@@ -184,7 +184,12 @@ class Pipeline:
             header.get("videoDurationS", 0.0),
             reports,
         )
-        advice = recommendations(events, summary.channel_scores, metric_reports=reports)
+        advice = recommendations(
+            events,
+            summary.channel_scores,
+            metric_reports=reports,
+            thin_channels=summary.facts.thin_channels,
+        )
 
         # Rewording, if a model is installed and it was asked for. This only ever changes how
         # the advice is worded: what was noticed, when it happened and the scores are all

@@ -28,6 +28,15 @@ CREATE TABLE IF NOT EXISTS sessions (
   face_score       REAL,
   pose_score       REAL,
   hands_score      REAL,
+  -- How many seconds each channel score rests on, out of windows_total, and which channels
+  -- the analysis judged too thinly seen to present as a finding (a comma-separated list,
+  -- empty when none). A score from one second of a long recording otherwise looks exactly
+  -- like a score from all of it. Null for sessions analysed before these were stored.
+  face_windows     INTEGER,
+  pose_windows     INTEGER,
+  hands_windows    INTEGER,
+  windows_total    INTEGER,
+  thin_channels    TEXT,
   -- The sentence shown at the top of the results, written by the analysis from what it
   -- actually found. Kept here rather than rebuilt on screen for the same reason as the
   -- scores above: it should say the same thing everywhere it appears.

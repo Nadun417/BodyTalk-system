@@ -408,6 +408,7 @@ def recommendations(
     channel_scores: dict[str, float | None],
     limit: int = 3,
     metric_reports: dict[str, Sequence] | None = None,
+    thin_channels: Sequence[str] = (),
 ) -> list[Recommendation]:
     """Rank the channels and turn the top ones into at most three things to try.
 
@@ -428,6 +429,11 @@ def recommendations(
     more than it sounds. "Work on your face and eye contact" is close to useless when the
     eye contact was fine all the way through and the whole shortfall came from a still
     expression, and it is the kind of advice that teaches somebody to stop reading.
+
+    `thin_channels` names channels whose score rests on too little of the recording to be
+    compared with the others. They can still be the subject of advice about something that
+    was actually observed, since an observation stands on its own evidence, but they are
+    never held up as the strongest channel, because that claim would rest on a few seconds.
     """
     pressure: dict[str, float] = {}
     for channel, score in channel_scores.items():
@@ -481,7 +487,7 @@ def recommendations(
     scored = {
         c: s
         for c, s in channel_scores.items()
-        if s is not None and c not in already_named
+        if s is not None and c not in already_named and c not in thin_channels
     }
     if scored and len(out) < limit:
         best = max(scored.items(), key=lambda kv: (kv[1], kv[0]))[0]

@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { AnalysisEvent, ChannelMetric, ScoredChannel, Channel } from '@shared/types'
+import type {
+  AnalysisEvent,
+  ChannelMetric,
+  ChannelCoverage,
+  ScoredChannel,
+  Channel
+} from '@shared/types'
 import type { SessionDetail } from '../../../preload/index'
 import ScoresOverTimeChart from '../components/charts/ScoresOverTimeChart'
 import WeightOverTimeChart from '../components/charts/WeightOverTimeChart'
-import { clock, shortDate, CHANNEL_COLOUR, CHANNEL_NAME } from '../lib/format'
+import { clock, shortDate, thinNote, CHANNEL_COLOUR, CHANNEL_NAME } from '../lib/format'
 
 /**
  * The results screen.
@@ -63,7 +69,13 @@ export default function Dashboard(): JSX.Element {
       <div className="scores">
         <ScoreCard label="Overall" score={session.overallScore} channel="fused" lead />
         {channels.map((c) => (
-          <ScoreCard key={c} label={CHANNEL_NAME[c]} score={session.channelScores[c]} channel={c} />
+          <ScoreCard
+            key={c}
+            label={CHANNEL_NAME[c]}
+            score={session.channelScores[c]}
+            channel={c}
+            coverage={session.channelCoverage?.[c]}
+          />
         ))}
       </div>
 
@@ -86,6 +98,7 @@ export default function Dashboard(): JSX.Element {
                 key={c}
                 channel={c}
                 score={session.channelScores[c]}
+                coverage={session.channelCoverage?.[c]}
                 metrics={channelMetrics.filter((m) => m.channel === c)}
               />
             ))}
@@ -156,15 +169,21 @@ function ScoreCard({
   label,
   score,
   channel,
-  lead
+  lead,
+  coverage
 }: {
   label: string
   score: number | null
   channel: Channel
   lead?: boolean
+  coverage?: ChannelCoverage | null
 }): JSX.Element {
+  // A score from a few seconds is still shown, because hiding it would also hide that the
+  // channel was barely seen. It is faded and captioned so it cannot pass for a finding
+  // about the whole recording.
+  const note = thinNote(coverage)
   return (
-    <div className={`score-card ${lead ? 'lead' : ''}`}>
+    <div className={`score-card ${lead ? 'lead' : ''}${note ? ' thin' : ''}`}>
       <div className="between" style={{ alignItems: 'center' }}>
         <span className="label">{label}</span>
         <span className="dot" style={{ background: CHANNEL_COLOUR[channel] }} />
@@ -175,6 +194,7 @@ function ScoreCard({
       <div className="meter">
         <i style={{ width: `${score ?? 0}%`, background: CHANNEL_COLOUR[channel] }} />
       </div>
+      {note && <div className="thin-note">{note}</div>}
     </div>
   )
 }
@@ -370,15 +390,20 @@ function SeeTheMoment({
 function ChannelBreakdown({
   channel,
   score,
+  coverage,
   metrics
 }: {
   channel: ScoredChannel
   score: number | null
+  coverage?: ChannelCoverage | null
   metrics: ChannelMetric[]
 }): JSX.Element {
+  const note = thinNote(coverage)
   // The measurement most responsible for the shortfall, but only when there is a real
-  // shortfall to explain. Marking one on a channel that scored 98 would invent a fault.
-  const driver = metrics.find((m) => m.scored && m.shortfall >= 1)
+  // shortfall to explain. Marking one on a channel that scored 98 would invent a fault, and
+  // marking one on a channel scored from a few seconds would present those seconds as the
+  // reason for a score about the whole recording.
+  const driver = note ? undefined : metrics.find((m) => m.scored && m.shortfall >= 1)
 
   return (
     <div className="breakdown-channel">
@@ -386,6 +411,7 @@ function ChannelBreakdown({
         <strong>{CHANNEL_NAME[channel]}</strong>
         <span className="n">{score === null ? '—' : Math.round(score)}</span>
       </div>
+      {note && <div className="thin-note">{note}</div>}
       {metrics.length === 0 ? (
         <div className="muted" style={{ fontSize: 13 }}>
           Nothing could be measured here.

@@ -22,6 +22,11 @@ const session: Session = {
   fusionMode: 'adaptive',
   overallScore: 78,
   channelScores: { face: 66.4, pose: 98.3, hands: 71.4 },
+  channelCoverage: {
+    face: { windows: 143, of: 143, thin: false },
+    pose: { windows: 143, of: 143, thin: false },
+    hands: { windows: 140, of: 143, thin: false }
+  },
   overallSummary: 'Your strongest channel this session was posture.',
   status: 'complete'
 }
@@ -123,6 +128,23 @@ describe('buildReportDocDefinition', () => {
     const doc = build()
     for (const score of ['78', '66.4', '98.3', '71.4']) expect(doc).toContain(score)
     expect(doc).toContain('Adaptive weighting')
+  })
+
+  /**
+   * The printed report is often read on its own, away from the screen, so a score resting on
+   * a few seconds has to carry its own warning there too.
+   */
+  it('prints the caveat under a score that rests on too little of the recording', () => {
+    const caveat = 'Only 1 of 143 seconds could be scored, so treat this as a hint.'
+    expect(build()).not.toContain('could be scored, so treat this as a hint')
+    const thin = build({
+      session: {
+        ...session,
+        channelCoverage: { ...session.channelCoverage, hands: { windows: 1, of: 143, thin: true } }
+      }
+    })
+    expect(thin.split(caveat).length - 1).toBe(1)
+    expect(thin).toContain('71.4')
   })
 
   it('breaks each score down into the measurements behind it', () => {

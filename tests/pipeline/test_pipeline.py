@@ -127,6 +127,7 @@ def test_the_result_has_every_field_the_application_reads(tmp_path):
         "fusionMode",
         "overallScore",
         "channelScores",
+        "channelCoverage",
         "overallSummary",
         "summaryPhrasing",
         "channelMetrics",
@@ -136,7 +137,7 @@ def test_the_result_has_every_field_the_application_reads(tmp_path):
         "meta",
     ):
         assert key in result, f"missing {key}"
-    assert result["schemaVersion"] == 3
+    assert result["schemaVersion"] == 4
     assert result["fusionMode"] == "adaptive"
 
 
@@ -245,3 +246,21 @@ def test_the_hand_channel_loses_influence_when_the_hands_go_missing(tmp_path):
     fixed_partial = [w for w in one_hand(results["fixed"]) if w is not None]
     assert adaptive_partial and max(adaptive_partial) < 1 / 3
     assert fixed_partial and all(abs(w - 1 / 3) < 0.002 for w in fixed_partial)
+
+
+def test_the_results_say_how_much_of_the_recording_each_channel_score_rests_on(tmp_path):
+    """A channel score from one second looks exactly like one from the whole recording unless
+    the results say otherwise, and the screen and the report both read this to say so."""
+    from feedback.scorer import THIN_CHANNEL_SHARE
+
+    out = tmp_path / "session"
+    write_cache(out / "landmarks.jsonl", seconds=40)
+    result = Pipeline(AdaptiveFusion()).run("synthetic.mp4", out_dir=str(out))
+
+    assert result["schemaVersion"] == 4
+    coverage = result["channelCoverage"]
+    assert set(coverage) == set(result["channelScores"])
+    for channel, c in coverage.items():
+        assert set(c) == {"windows", "of", "thin"}
+        assert 0 <= c["windows"] <= c["of"]
+        assert c["thin"] == (c["windows"] < THIN_CHANNEL_SHARE * c["of"])

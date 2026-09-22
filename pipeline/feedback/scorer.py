@@ -27,6 +27,22 @@ from typing import Sequence
 from .metrics import explain_channel
 from .rules import Event, clock
 
+#: The share of the recording a channel score has to rest on before it is treated as a
+#: finding about the whole session.
+#:
+#: A channel's score is the average over the seconds in which that channel could actually be
+#: measured, so a channel seen for one second of a seventy-second recording gets a score built
+#: from that one second, and on the screen it looks exactly like a score built from all
+#: seventy. Below this share the score is still shown, because hiding it would also hide that
+#: the channel was barely seen, but it is marked as resting on too little to rely on, and it
+#: is never named as the strongest or the weakest channel.
+#:
+#: Half is the line the channel breakdown already uses for a single measurement, where a
+#: measurement available in less than half of its channel's seconds is described as "a hint
+#: rather than a finding". Using the same line means the two warnings agree about what too
+#: little of the session is, instead of each having its own figure.
+THIN_CHANNEL_SHARE = 0.5
+
 
 @dataclass
 class SessionFacts:
@@ -45,6 +61,10 @@ class SessionFacts:
     strongest_channel: str | None = None
     weakest_channel: str | None = None
     positive_moments: int = 0
+    #: how many seconds each channel's score actually rests on, out of windows_total
+    channel_windows: dict[str, int] = field(default_factory=dict)
+    #: channels whose score rests on less than THIN_CHANNEL_SHARE of the recording
+    thin_channels: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -93,7 +113,23 @@ def summarise(
         )
     facts.positive_moments = sum(1 for e in events if e.type == "smile")
 
-    ranked = {c: s for c, s in channel_scores.items() if s is not None}
+    for channel, windows in channel_windows.items():
+        facts.channel_windows[channel] = sum(1 for w in windows if w.score is not None)
+    facts.thin_channels = [
+        channel
+        for channel, count in facts.channel_windows.items()
+        if channel_scores.get(channel) is not None
+        and count < THIN_CHANNEL_SHARE * facts.windows_total
+    ]
+
+    # A channel seen for only a sliver of the recording is left out of the comparison. Its
+    # score is a few seconds' reading, and calling it the strongest or the weakest channel
+    # would present that sliver as a verdict on the whole session.
+    ranked = {
+        c: s
+        for c, s in channel_scores.items()
+        if s is not None and c not in facts.thin_channels
+    }
     if ranked:
         facts.strongest_channel = max(ranked.items(), key=lambda kv: (kv[1], kv[0]))[0]
         facts.weakest_channel = min(ranked.items(), key=lambda kv: (kv[1], kv[0]))[0]
@@ -164,6 +200,17 @@ def summary_sentence(
     positive = [e for e in events if e.type == "smile"]
     if positive:
         parts.append(f"There was also a natural smile around {clock(positive[0].t_start_s)}.")
+
+    # Said in words rather than left to the number, because a score built from a few seconds
+    # looks exactly like one built from the whole recording unless something says otherwise.
+    # It says how little was scored and nothing about why: the channel may have been out of
+    # shot, hidden or simply not picked up, and the data cannot tell those apart.
+    for channel in facts.thin_channels:
+        label = CHANNEL_LABEL.get(channel, channel)
+        parts.append(
+            f"Only {facts.channel_windows.get(channel, 0)} of the {facts.windows_total} seconds "
+            f"could be scored for {label}, so treat that score as a hint rather than a finding."
+        )
 
     if facts.windows_skipped > facts.windows_total * 0.25:
         parts.append(

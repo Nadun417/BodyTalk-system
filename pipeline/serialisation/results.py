@@ -31,7 +31,11 @@ from analysers import CHANNEL_METRICS
 #: and summarised across the session. Before that only the channel score was kept, so
 #: nothing downstream could say whether a face score of 66 meant three middling
 #: measurements or two good ones and a third on the floor.
-SCHEMA_VERSION = 3
+#:
+#: Version 4 added how much of the recording each channel score rests on. A channel seen for
+#: one second gets a score from that one second, and without this nothing downstream could
+#: tell it apart from a score built from the whole recording.
+SCHEMA_VERSION = 4
 
 CHANNELS = ("face", "pose", "hands")
 
@@ -116,6 +120,17 @@ def build_result(
         "overallScore": _round(summary.overall_score, 1),
         "channelScores": {
             channel: _round(score, 1) for channel, score in summary.channel_scores.items()
+        },
+        # How many of the recording's seconds each channel score rests on, and whether that is
+        # too few to present the score as a finding about the whole session. The judgement is
+        # made here, once, so the screen and the report cannot disagree about it.
+        "channelCoverage": {
+            channel: {
+                "windows": summary.facts.channel_windows.get(channel, 0),
+                "of": summary.facts.windows_total,
+                "thin": channel in summary.facts.thin_channels,
+            }
+            for channel in summary.channel_scores
         },
         "overallSummary": summary.summary_text,
         "summaryPhrasing": "template",

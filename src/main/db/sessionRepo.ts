@@ -7,8 +7,13 @@ import type {
   SessionStatus,
   PipelineResult,
   Recommendation,
-  ChannelMetric
+  ChannelMetric,
+  ChannelCoverage,
+  ScoredChannel
 } from '@shared/types'
+
+/** The three channels that each have a score of their own. */
+const SCORED: ScoredChannel[] = ['face', 'pose', 'hands']
 
 /** Raw `sessions` row (snake_case) → domain `Session`. */
 interface SessionRow {
@@ -22,8 +27,32 @@ interface SessionRow {
   face_score: number | null
   pose_score: number | null
   hands_score: number | null
+  face_windows: number | null
+  pose_windows: number | null
+  hands_windows: number | null
+  windows_total: number | null
+  thin_channels: string | null
   overall_summary: string | null
   status: SessionStatus
+}
+
+/**
+ * One channel's coverage, or null when it was never recorded.
+ *
+ * All three stored pieces have to be present. A session analysed before coverage was kept
+ * has none of them, and inventing a value for it would put a warning, or the absence of
+ * one, on a score where nothing was ever measured to justify it.
+ */
+function coverageOf(
+  channel: ScoredChannel,
+  windows: number | null,
+  r: SessionRow
+): ChannelCoverage | null {
+  if (windows === null || windows === undefined) return null
+  if (r.windows_total === null || r.windows_total === undefined) return null
+  if (r.thin_channels === null || r.thin_channels === undefined) return null
+  const thin = r.thin_channels.split(',').includes(channel)
+  return { windows, of: r.windows_total, thin }
 }
 
 function toSession(r: SessionRow): Session {
@@ -42,6 +71,11 @@ function toSession(r: SessionRow): Session {
       face: r.face_score ?? null,
       pose: r.pose_score ?? null,
       hands: r.hands_score ?? null
+    },
+    channelCoverage: {
+      face: coverageOf('face', r.face_windows, r),
+      pose: coverageOf('pose', r.pose_windows, r),
+      hands: coverageOf('hands', r.hands_windows, r)
     },
     overallSummary: r.overall_summary ?? null,
     status: r.status
@@ -262,9 +296,18 @@ export function saveResult(sessionId: number, result: PipelineResult): void {
     // self-test does not produce them, so they can legitimately be absent, and absent is
     // stored as nothing rather than as zero.
     const channels = result.channelScores
+    // Coverage is stored as the analysis judged it, for the same reason as the scores: the
+    // decision about what counts as too little of the recording is made in one place, and
+    // everything else passes it along. The self-test and older pipelines do not produce it,
+    // and absent is stored as nothing, which the screen shows as no comment at all.
+    const coverage = result.channelCoverage
+    const total = coverage ? Math.max(0, ...SCORED.map((c) => coverage[c]?.of ?? 0)) : null
+    const thin = coverage ? SCORED.filter((c) => coverage[c]?.thin).join(',') : null
     dbRun(
       `UPDATE sessions
           SET overall_score = ?, face_score = ?, pose_score = ?, hands_score = ?,
+              face_windows = ?, pose_windows = ?, hands_windows = ?,
+              windows_total = ?, thin_channels = ?,
               overall_summary = ?, summary_phrasing = ?, status = 'complete'
         WHERE id = ?`,
       [
@@ -272,6 +315,11 @@ export function saveResult(sessionId: number, result: PipelineResult): void {
         channels?.face ?? null,
         channels?.pose ?? null,
         channels?.hands ?? null,
+        coverage?.face?.windows ?? null,
+        coverage?.pose?.windows ?? null,
+        coverage?.hands?.windows ?? null,
+        total,
+        thin,
         result.overallSummary ?? null,
         result.summaryPhrasing ?? null,
         sessionId

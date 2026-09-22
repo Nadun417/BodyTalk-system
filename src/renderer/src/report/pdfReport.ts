@@ -6,7 +6,7 @@ import type {
   Recommendation,
   ScoredChannel
 } from '@shared/types'
-import { clock, shortDate, CHANNEL_NAME } from '../lib/format'
+import { clock, shortDate, thinNote, CHANNEL_NAME } from '../lib/format'
 
 /**
  * Describes what goes in a session's PDF report, section by section.
@@ -77,7 +77,14 @@ export function buildReportDocDefinition(input: ReportInput): TDocumentDefinitio
         body: [
           [
             scoreCell('Overall', session.overallScore, true),
-            ...CHANNELS.map((c) => scoreCell(CHANNEL_NAME[c], session.channelScores[c]))
+            ...CHANNELS.map((c) =>
+              scoreCell(
+                CHANNEL_NAME[c],
+                session.channelScores[c],
+                false,
+                thinNote(session.channelCoverage?.[c])
+              )
+            )
           ]
         ]
       },
@@ -233,6 +240,7 @@ export function buildReportDocDefinition(input: ReportInput): TDocumentDefinitio
       adviceTitle: { fontSize: 11, bold: true, color: INK, margin: [0, 0, 0, 2] },
       scoreLabel: { fontSize: 8, color: GREY },
       scoreValue: { fontSize: 20, bold: true, color: INK },
+      scoreNote: { fontSize: 7, color: GREY, margin: [0, 2, 8, 0] },
       foot: { fontSize: 8, color: GREY }
     },
     defaultStyle: { fontSize: 10, color: INK }
@@ -240,15 +248,29 @@ export function buildReportDocDefinition(input: ReportInput): TDocumentDefinitio
 }
 
 /** One score, shown the way the results screen shows it. */
-function scoreCell(label: string, score: number | null, lead = false): Content {
+/**
+ * One score in the row at the top of the report.
+ *
+ * A score resting on too little of the recording keeps its number, greyed, with the same
+ * caveat the results screen shows underneath it. The printed report is often read on its own,
+ * away from the screen, so it has to carry the warning itself rather than rely on the reader
+ * having seen it elsewhere.
+ */
+function scoreCell(
+  label: string,
+  score: number | null,
+  lead = false,
+  note: string | null = null
+): Content {
   return {
     stack: [
       { text: label.toUpperCase(), style: 'scoreLabel' },
       {
         text: score === null || score === undefined ? '—' : String(score),
         style: 'scoreValue',
-        color: lead ? BRAND : INK
-      }
+        color: note ? GREY : lead ? BRAND : INK
+      },
+      ...(note ? [{ text: note, style: 'scoreNote' } as Content] : [])
     ],
     margin: [0, 6, 0, 6]
   }

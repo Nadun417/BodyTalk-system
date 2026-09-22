@@ -1,4 +1,4 @@
-import type { Channel } from '@shared/types'
+import type { Channel, ChannelCoverage } from '@shared/types'
 
 /**
  * The small conversions every screen needs, kept together so they agree with each other.
@@ -15,6 +15,19 @@ export function clock(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   return `${m}:${String(s).padStart(2, '0')}`
+}
+
+/**
+ * The caveat for a channel score that rests on too little of the recording, or null.
+ *
+ * Written once here so the results screen and the PDF say exactly the same thing. It says
+ * how little was scored and not why: the channel may have been out of shot, hidden or simply
+ * not picked up, and the analysis cannot tell those apart, so the sentence does not pretend
+ * to. Whether the score counts as thin was decided by the analysis, not here.
+ */
+export function thinNote(coverage: ChannelCoverage | null | undefined): string | null {
+  if (!coverage?.thin) return null
+  return `Only ${coverage.windows} of ${coverage.of} seconds could be scored, so treat this as a hint.`
 }
 
 /** A stored timestamp as a short date, in the reader's own regional format. */

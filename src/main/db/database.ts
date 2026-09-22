@@ -93,7 +93,12 @@ function addMissingColumns(): void {
       'pose_score REAL',
       'hands_score REAL',
       'overall_summary TEXT',
-      'summary_phrasing TEXT'
+      'summary_phrasing TEXT',
+      'face_windows INTEGER',
+      'pose_windows INTEGER',
+      'hands_windows INTEGER',
+      'windows_total INTEGER',
+      'thin_channels TEXT'
     ],
     events: ['phrasing TEXT'],
     recommendations: ['detail TEXT']

@@ -62,10 +62,12 @@ describe('saveResult', () => {
   it('stores nothing rather than zero when the run produced no channel scores', () => {
     saveResult(9, resultWith(undefined))
     const { params } = finishingUpdate()
-    // Overall score, the three channels, the summary and how it was worded, then the id.
-    // Spelled out in full so that adding another column forces a decision about what an
-    // absent value means, rather than letting a zero slip in unnoticed.
-    expect(params).toEqual([78.5, null, null, null, null, null, 9])
+    // Overall score, the three channels, the three coverage counts and their total, the
+    // list of thinly seen channels, the summary and how it was worded, then the id. Spelled
+    // out in full so that adding another column forces a decision about what an absent value
+    // means, rather than letting a zero slip in unnoticed. Absent coverage is stored as
+    // nothing, which the screen shows as no comment at all.
+    expect(params).toEqual([78.5, null, null, null, null, null, null, null, null, null, null, 9])
     expect(params).not.toContain(0)
   })
 })
@@ -110,5 +112,80 @@ describe('getSession', () => {
       status: 'complete'
     })
     expect(getSession(6)?.channelScores).toEqual({ face: null, pose: null, hands: null })
+  })
+})
+
+/**
+ * How much of the recording each channel score rests on.
+ *
+ * Caught on real footage: a hand score built from one second of a 73-second recording was
+ * shown exactly like a score built from all 73. The analysis now says how many seconds each
+ * score rests on and which it judged too few to rely on, and these tests pin that the
+ * judgement is carried through as made rather than remade here.
+ */
+describe('channel coverage', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const covered = (hands: number, thin: boolean): PipelineResult => ({
+    ...resultWith({ face: 90, pose: 85, hands: 70 }),
+    channelCoverage: {
+      face: { windows: 73, of: 73, thin: false },
+      pose: { windows: 73, of: 73, thin: false },
+      hands: { windows: hands, of: 73, thin }
+    }
+  })
+
+  it('stores how many seconds each score rests on, and which the analysis judged too few', () => {
+    saveResult(9, covered(1, true))
+    const { sql, params } = finishingUpdate()
+    expect(sql).toContain('thin_channels')
+    expect(params).toEqual([78.5, 90, 85, 70, 73, 73, 1, 73, 'hands', null, null, 9])
+  })
+
+  /**
+   * An empty list and nothing mean different things. Empty says the analysis checked and no
+   * channel was too thinly seen; nothing says the check was never made, for a session from
+   * before it existed.
+   */
+  it('stores an empty list, not nothing, when every channel was seen enough', () => {
+    saveResult(9, covered(60, false))
+    expect(finishingUpdate().params[8]).toBe('')
+  })
+
+  const row = (extra: Record<string, unknown>): Record<string, unknown> => ({
+    id: 9,
+    created_at: 'now',
+    video_filename: 'practice.mp4',
+    video_duration_s: 73,
+    analysis_fps: 6,
+    fusion_mode: 'adaptive',
+    overall_score: 78.5,
+    face_score: 90,
+    pose_score: 85,
+    hands_score: 70,
+    status: 'complete',
+    ...extra
+  })
+
+  it('reads the coverage back, with the flag the analysis set', () => {
+    dbGet.mockReturnValue(
+      row({
+        face_windows: 73,
+        pose_windows: 73,
+        hands_windows: 1,
+        windows_total: 73,
+        thin_channels: 'hands'
+      })
+    )
+    expect(getSession(9)?.channelCoverage).toEqual({
+      face: { windows: 73, of: 73, thin: false },
+      pose: { windows: 73, of: 73, thin: false },
+      hands: { windows: 1, of: 73, thin: true }
+    })
+  })
+
+  it('gives no coverage for a session recorded before it was stored, rather than guessing', () => {
+    dbGet.mockReturnValue(row({}))
+    expect(getSession(9)?.channelCoverage).toEqual({ face: null, pose: null, hands: null })
   })
 })
