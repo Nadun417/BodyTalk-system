@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { FusionMode, PhrasingMode, VideoValidation } from '@shared/types'
 import { clock } from '../lib/format'
@@ -24,7 +24,12 @@ export default function Upload(): JSX.Element {
   const [check, setCheck] = useState<VideoValidation | null>(null)
   const [over, setOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [minDurationS, setMinDurationS] = useState<number | null>(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    window.bodytalk.getSettings().then((s) => setMinDurationS(Math.round(s.minDurationS)))
+  }, [])
 
   const choose = async (path: string): Promise<void> => {
     setVideoPath(path)
@@ -110,7 +115,10 @@ export default function Upload(): JSX.Element {
           </button>
         </div>
         <p className="muted" style={{ marginBottom: 0, marginTop: 12, fontSize: 13 }}>
-          MP4 or WebM · 1–10 minutes · one person in frame
+          {/* The shortest length is read from the settings rather than written here, because it
+              can be changed on the settings screen and a line promising a minute while the
+              check refuses anything under two would be the app contradicting itself. */}
+          MP4 or WebM · {minDurationS ?? '…'} seconds to 10 minutes · one person in frame
         </p>
         {filename && (
           <p style={{ marginBottom: 0, marginTop: 14, fontWeight: 600 }}>

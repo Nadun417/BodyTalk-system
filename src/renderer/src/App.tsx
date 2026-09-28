@@ -5,6 +5,7 @@ import Upload from './screens/Upload'
 import Processing from './screens/Processing'
 import Dashboard from './screens/Dashboard'
 import Report from './screens/Report'
+import Settings from './screens/Settings'
 
 type Theme = 'light' | 'dark'
 
@@ -44,6 +45,14 @@ export default function App(): JSX.Element {
           <span className="logo-word">BodyTalk</span>
         </Link>
         <div className="topbar-spacer" />
+        <Link
+          to="/settings"
+          className="icon-button"
+          title="Settings"
+          aria-label="Open the settings"
+        >
+          ⚙
+        </Link>
         <button
           className="icon-button"
           onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
@@ -60,6 +69,7 @@ export default function App(): JSX.Element {
         <Route path="/processing/:id" element={<Processing />} />
         <Route path="/dashboard/:id" element={<Dashboard />} />
         <Route path="/report/:id" element={<Report />} />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
     </div>
   )
