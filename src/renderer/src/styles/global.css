@@ -658,18 +658,16 @@ button.block {
   margin: 2px 0 10px;
 }
 
-/* A score resting on too little of the recording: still shown, but faded and captioned so it
-   cannot pass for a finding about the whole session. */
-.score-card.thin .n,
-.score-card.thin .meter {
-  opacity: 0.45;
-}
-
+/* Said in place of a score resting on too little of the recording, which is shown as a dash. */
 .thin-note {
   margin-top: 8px;
   font-size: 12px;
   line-height: 1.4;
   color: var(--warn);
+}
+
+.breakdown-channel .thin-note {
+  margin: 0 0 12px;
 }
 
 .dot {

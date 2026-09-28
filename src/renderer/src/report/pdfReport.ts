@@ -6,7 +6,7 @@ import type {
   Recommendation,
   ScoredChannel
 } from '@shared/types'
-import { clock, shortDate, thinNote, CHANNEL_NAME } from '../lib/format'
+import { clock, shortDate, shownScore, thinNote, CHANNEL_NAME } from '../lib/format'
 
 /**
  * Describes what goes in a session's PDF report, section by section.
@@ -80,7 +80,7 @@ export function buildReportDocDefinition(input: ReportInput): TDocumentDefinitio
             ...CHANNELS.map((c) =>
               scoreCell(
                 CHANNEL_NAME[c],
-                session.channelScores[c],
+                shownScore(session.channelScores[c], session.channelCoverage?.[c]),
                 false,
                 thinNote(session.channelCoverage?.[c])
               )
@@ -162,20 +162,28 @@ export function buildReportDocDefinition(input: ReportInput): TDocumentDefinitio
               { text: 'Average', style: 'th' },
               { text: 'Shortfall', style: 'th' }
             ],
-            ...channelMetrics.map((m) => [
-              {
-                // Saying so on the row itself rather than in a footnote. A reader skimming
-                // the table would otherwise take this number for one that shaped the score.
-                text: m.scored ? m.label : `${m.label} (not counted towards the score)`,
-                style: 'cell'
-              },
-              { text: CHANNEL_NAME[m.channel], style: 'cell' },
-              { text: m.meanScore === null ? '—' : String(Math.round(m.meanScore)), style: 'cell' },
-              {
-                text: m.scored ? m.shortfall.toFixed(1) : '—',
-                style: 'cell'
-              }
-            ])
+            ...channelMetrics.map((m) => {
+              // A channel whose score was withheld has its measurements withheld too, since
+              // they come from the same few seconds.
+              const withheld = session.channelCoverage?.[m.channel]?.thin === true
+              return [
+                {
+                  // Saying so on the row itself rather than in a footnote. A reader skimming
+                  // the table would otherwise take this number for one that shaped the score.
+                  text: m.scored ? m.label : `${m.label} (not counted towards the score)`,
+                  style: 'cell'
+                },
+                { text: CHANNEL_NAME[m.channel], style: 'cell' },
+                {
+                  text: withheld || m.meanScore === null ? '—' : String(Math.round(m.meanScore)),
+                  style: 'cell'
+                },
+                {
+                  text: m.scored && !withheld ? m.shortfall.toFixed(1) : '—',
+                  style: 'cell'
+                }
+              ]
+            })
           ]
         },
         layout: 'lightHorizontalLines',
@@ -247,14 +255,13 @@ export function buildReportDocDefinition(input: ReportInput): TDocumentDefinitio
   }
 }
 
-/** One score, shown the way the results screen shows it. */
 /**
- * One score in the row at the top of the report.
+ * One score in the row at the top of the report, shown the way the results screen shows it.
  *
- * A score resting on too little of the recording keeps its number, greyed, with the same
- * caveat the results screen shows underneath it. The printed report is often read on its own,
- * away from the screen, so it has to carry the warning itself rather than rely on the reader
- * having seen it elsewhere.
+ * A score resting on too little of the recording is printed as a dash, with the same sentence
+ * the results screen shows saying how little was measured. The printed report is often read
+ * on its own, away from the screen, so it has to explain the dash itself rather than rely on
+ * the reader having seen the explanation elsewhere.
  */
 function scoreCell(
   label: string,
@@ -268,7 +275,7 @@ function scoreCell(
       {
         text: score === null || score === undefined ? '—' : String(score),
         style: 'scoreValue',
-        color: note ? GREY : lead ? BRAND : INK
+        color: lead ? BRAND : INK
       },
       ...(note ? [{ text: note, style: 'scoreNote' } as Content] : [])
     ],

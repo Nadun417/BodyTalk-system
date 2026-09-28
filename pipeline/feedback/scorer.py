@@ -33,9 +33,11 @@ from .rules import Event, clock
 #: A channel's score is the average over the seconds in which that channel could actually be
 #: measured, so a channel seen for one second of a seventy-second recording gets a score built
 #: from that one second, and on the screen it looks exactly like a score built from all
-#: seventy. Below this share the score is still shown, because hiding it would also hide that
-#: the channel was barely seen, but it is marked as resting on too little to rely on, and it
-#: is never named as the strongest or the weakest channel.
+#: seventy. Below this share the number is kept in the saved results, where the evaluation can
+#: still read it, but it is never shown to the user and never named as the strongest or the
+#: weakest channel. In its place the screen and the report say how little of the recording the
+#: channel could be measured in, which is the part that is actually known. A number with a
+#: warning beside it still reads as a number, so the number is left out rather than qualified.
 #:
 #: Half is the line the channel breakdown already uses for a single measurement, where a
 #: measurement available in less than half of its channel's seconds is described as "a hint
@@ -201,15 +203,16 @@ def summary_sentence(
     if positive:
         parts.append(f"There was also a natural smile around {clock(positive[0].t_start_s)}.")
 
-    # Said in words rather than left to the number, because a score built from a few seconds
-    # looks exactly like one built from the whole recording unless something says otherwise.
-    # It says how little was scored and nothing about why: the channel may have been out of
-    # shot, hidden or simply not picked up, and the data cannot tell those apart.
+    # Said in words because the score itself is not shown for such a channel, and a score
+    # missing without explanation looks like a fault in the app. It says how little was
+    # measured and nothing about why: the channel may have been out of shot, hidden or simply
+    # not picked up, and the data cannot tell those apart.
     for channel in facts.thin_channels:
         label = CHANNEL_LABEL.get(channel, channel)
         parts.append(
-            f"Only {facts.channel_windows.get(channel, 0)} of the {facts.windows_total} seconds "
-            f"could be scored for {label}, so treat that score as a hint rather than a finding."
+            f"{label[0].upper()}{label[1:]} could be measured in only "
+            f"{facts.channel_windows.get(channel, 0)} of the {facts.windows_total} seconds, "
+            "which is too little to give it a score."
         )
 
     if facts.windows_skipped > facts.windows_total * 0.25:

@@ -10,7 +10,7 @@ import type {
 import type { SessionDetail } from '../../../preload/index'
 import ScoresOverTimeChart from '../components/charts/ScoresOverTimeChart'
 import WeightOverTimeChart from '../components/charts/WeightOverTimeChart'
-import { clock, shortDate, thinNote, CHANNEL_COLOUR, CHANNEL_NAME } from '../lib/format'
+import { clock, shortDate, shownScore, thinNote, CHANNEL_COLOUR, CHANNEL_NAME } from '../lib/format'
 
 /**
  * The results screen.
@@ -178,21 +178,21 @@ function ScoreCard({
   lead?: boolean
   coverage?: ChannelCoverage | null
 }): JSX.Element {
-  // A score from a few seconds is still shown, because hiding it would also hide that the
-  // channel was barely seen. It is faded and captioned so it cannot pass for a finding
-  // about the whole recording.
+  // A score from a few seconds shows a dash and says how little was measured. The card
+  // stays, rather than disappearing, so that the channel being barely seen is itself visible.
   const note = thinNote(coverage)
+  const shown = shownScore(score, coverage)
   return (
-    <div className={`score-card ${lead ? 'lead' : ''}${note ? ' thin' : ''}`}>
+    <div className={`score-card ${lead ? 'lead' : ''}`}>
       <div className="between" style={{ alignItems: 'center' }}>
         <span className="label">{label}</span>
         <span className="dot" style={{ background: CHANNEL_COLOUR[channel] }} />
       </div>
       <div className="n" style={{ color: CHANNEL_COLOUR[channel] }}>
-        {score ?? '—'}
+        {shown ?? '—'}
       </div>
       <div className="meter">
-        <i style={{ width: `${score ?? 0}%`, background: CHANNEL_COLOUR[channel] }} />
+        <i style={{ width: `${shown ?? 0}%`, background: CHANNEL_COLOUR[channel] }} />
       </div>
       {note && <div className="thin-note">{note}</div>}
     </div>
@@ -399,17 +399,22 @@ function ChannelBreakdown({
   metrics: ChannelMetric[]
 }): JSX.Element {
   const note = thinNote(coverage)
+  const shown = shownScore(score, coverage)
   // The measurement most responsible for the shortfall, but only when there is a real
   // shortfall to explain. Marking one on a channel that scored 98 would invent a fault, and
   // marking one on a channel scored from a few seconds would present those seconds as the
   // reason for a score about the whole recording.
   const driver = note ? undefined : metrics.find((m) => m.scored && m.shortfall >= 1)
+  // The measurements' averages come from the same few seconds as the withheld score, so
+  // they are withheld with it. Their names stay, so it is still clear what would have been
+  // measured.
+  const rows: ChannelMetric[] = note ? metrics.map((m) => ({ ...m, meanScore: null })) : metrics
 
   return (
     <div className="breakdown-channel">
       <div className="breakdown-head">
         <strong>{CHANNEL_NAME[channel]}</strong>
-        <span className="n">{score === null ? '—' : Math.round(score)}</span>
+        <span className="n">{shown === null ? '—' : Math.round(shown)}</span>
       </div>
       {note && <div className="thin-note">{note}</div>}
       {metrics.length === 0 ? (
@@ -417,7 +422,7 @@ function ChannelBreakdown({
           Nothing could be measured here.
         </div>
       ) : (
-        metrics.map((m) => (
+        rows.map((m) => (
           <div
             key={m.metric}
             className={`metric ${channel}${m.scored ? '' : ' unscored'}${

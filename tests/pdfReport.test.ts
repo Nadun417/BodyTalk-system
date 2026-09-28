@@ -131,20 +131,44 @@ describe('buildReportDocDefinition', () => {
   })
 
   /**
-   * The printed report is often read on its own, away from the screen, so a score resting on
-   * a few seconds has to carry its own warning there too.
+   * A score resting on a few seconds is withheld, and the printed report, which is often read
+   * on its own away from the screen, has to say why the score is missing.
    */
-  it('prints the caveat under a score that rests on too little of the recording', () => {
-    const caveat = 'Only 1 of 143 seconds could be scored, so treat this as a hint.'
-    expect(build()).not.toContain('could be scored, so treat this as a hint')
+  it('withholds a score that rests on too little of the recording, and says why', () => {
+    const note = 'Only 1 of 143 seconds could be measured, which is too little to score.'
+    const gestures: ChannelMetric = {
+      channel: 'hands',
+      metric: 'gesture',
+      label: 'hand gestures',
+      scored: true,
+      meanScore: 40.4,
+      windows: 1,
+      coverage: 1,
+      shortfall: 29.6
+    }
+    const withGestures = [...channelMetrics, gestures]
+
+    const full = build({ channelMetrics: withGestures })
+    expect(full).not.toContain('too little to score')
+    expect(full).toContain('71.4')
+    expect(full).toContain('"text":"40"')
+    expect(full).toContain('29.6')
+
     const thin = build({
+      channelMetrics: withGestures,
       session: {
         ...session,
         channelCoverage: { ...session.channelCoverage, hands: { windows: 1, of: 143, thin: true } }
       }
     })
-    expect(thin.split(caveat).length - 1).toBe(1)
-    expect(thin).toContain('71.4')
+    expect(thin.split(note).length - 1).toBe(1)
+    // Neither the score nor the averages behind it, which come from the same few seconds.
+    expect(thin).not.toContain('71.4')
+    expect(thin).not.toContain('"text":"40"')
+    expect(thin).not.toContain('29.6')
+    // The other channels are untouched.
+    expect(thin).toContain('66.4')
+    expect(thin).toContain('32.6')
   })
 
   it('breaks each score down into the measurements behind it', () => {

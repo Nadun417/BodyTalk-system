@@ -18,16 +18,35 @@ export function clock(seconds: number): string {
 }
 
 /**
- * The caveat for a channel score that rests on too little of the recording, or null.
+ * What stands in for a channel score that rests on too little of the recording, or null.
  *
  * Written once here so the results screen and the PDF say exactly the same thing. It says
- * how little was scored and not why: the channel may have been out of shot, hidden or simply
- * not picked up, and the analysis cannot tell those apart, so the sentence does not pretend
- * to. Whether the score counts as thin was decided by the analysis, not here.
+ * how little was measured and not why: the channel may have been out of shot, hidden or
+ * simply not picked up, and the analysis cannot tell those apart, so the sentence does not
+ * pretend to. Whether the score counts as thin was decided by the analysis, not here.
  */
 export function thinNote(coverage: ChannelCoverage | null | undefined): string | null {
   if (!coverage?.thin) return null
-  return `Only ${coverage.windows} of ${coverage.of} seconds could be scored, so treat this as a hint.`
+  return `Only ${coverage.windows} of ${coverage.of} seconds could be measured, which is too little to score.`
+}
+
+/**
+ * The score to show for a channel, which is nothing when it rests on too little of the
+ * recording.
+ *
+ * A channel score is the average of the seconds the channel could be measured in, so when the
+ * hands appear for a moment the whole score comes from that moment. Shown on its own card it
+ * looks like a verdict on the whole session, and fading it with a warning underneath does not
+ * stop it reading as one. So the number is withheld here and the note above takes its place.
+ * It is not deleted: the saved results keep it, because the evaluation compares every channel
+ * score between the two weighting modes and would otherwise have a gap it could not account
+ * for.
+ */
+export function shownScore(
+  score: number | null,
+  coverage: ChannelCoverage | null | undefined
+): number | null {
+  return coverage?.thin ? null : score
 }
 
 /** A stored timestamp as a short date, in the reader's own regional format. */

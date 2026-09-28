@@ -18,6 +18,7 @@ from feedback import (
     summarise,
     sustained_intervals,
 )
+from feedback.metrics import MetricReport
 
 
 # Stand-ins for the analyser outputs, carrying only the fields the rules read.
@@ -363,12 +364,16 @@ def test_a_channel_seen_for_one_second_is_flagged_and_not_ranked():
     )
     assert summary.facts.channel_windows["hands"] == 1
     assert summary.facts.thin_channels == ["hands"]
-    # Still shown, because hiding the score would also hide that the channel was barely seen.
+    # Kept in the result, where the evaluation reads it. The screen and the report withhold it.
     assert summary.channel_scores["hands"] == 40.0
-    # But never named the lowest, even though it is.
+    # Never named the lowest, even though it is, and the summary says why it has no score.
     assert summary.facts.weakest_channel == "pose"
-    assert "Only 1 of the 73 seconds could be scored for hand movement" in summary.summary_text
+    assert (
+        "Hand movement could be measured in only 1 of the 73 seconds, "
+        "which is too little to give it a score." in summary.summary_text
+    )
     assert "hand movement score came out lowest" not in summary.summary_text
+    assert "40" not in summary.summary_text
 
 
 def test_a_barely_seen_channel_is_never_called_the_strongest():
@@ -399,4 +404,28 @@ def test_a_channel_seen_for_half_the_recording_is_treated_like_any_other():
     )
     assert summary.facts.thin_channels == []
     assert summary.facts.weakest_channel == "hands"
-    assert "treat that score as a hint" not in summary.summary_text
+    assert "too little to give it a score" not in summary.summary_text
+
+
+def test_advice_about_a_barely_seen_channel_does_not_quote_its_averages():
+    """Something observed on a barely-seen channel can still be advised on, but the sentence
+    of averages that normally follows would quote the same few seconds whose score is
+    withheld, so it is left off."""
+    reports = {
+        "hands": [
+            MetricReport("hands", "gesture", "hand gestures", True, 40.0, 1, 1.0, 30.0),
+            MetricReport("hands", "touch", "hands away from your face", True, 100.0, 1, 1.0, 0.0),
+        ]
+    }
+    events = [_fault("hands", "medium", 20.0)]
+    scores = {"face": 90.0, "hands": 70.0}
+
+    advice = recommendations(events, scores, metric_reports=reports, thin_channels=["hands"])
+    about_hands = [r for r in advice if r.channel == "hands"]
+    assert [r.kind for r in about_hands] == ["improve"]
+    assert about_hands[0].detail is None
+
+    # Without the channel named as thin, the same call does quote them, so the check above
+    # is testing the guard and not an absence of anything to quote.
+    unguarded = recommendations(events, scores, metric_reports=reports)
+    assert "averaged 40" in (unguarded[0].detail or "")

@@ -434,6 +434,8 @@ def recommendations(
     compared with the others. They can still be the subject of advice about something that
     was actually observed, since an observation stands on its own evidence, but they are
     never held up as the strongest channel, because that claim would rest on a few seconds.
+    Advice about one also goes without the sentence of averages that usually follows, since
+    those averages come from the same few seconds as the score that is not being shown.
     """
     pressure: dict[str, float] = {}
     for channel, score in channel_scores.items():
@@ -472,7 +474,11 @@ def recommendations(
                 basis_event_types=sorted(
                     {e.type for e in events if e.channel == channel and SEVERITY_WEIGHT.get(e.severity, 0)}
                 ),
-                detail=_detail_for(channel, channel_scores.get(channel), metric_reports),
+                detail=(
+                    None
+                    if channel in thin_channels
+                    else _detail_for(channel, channel_scores.get(channel), metric_reports)
+                ),
             )
         )
 
