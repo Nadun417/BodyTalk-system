@@ -5,7 +5,7 @@ import ScoresOverTimeChart from '../components/charts/ScoresOverTimeChart'
 import WeightOverTimeChart from '../components/charts/WeightOverTimeChart'
 import { buildReportDocDefinition } from '../report/pdfReport'
 import { renderPdf } from '../report/makePdf'
-import { clock, shortDate, shownScore, CHANNEL_NAME } from '../lib/format'
+import { clock, shortDate, shownScore, wholeScore, CHANNEL_NAME } from '../lib/format'
 
 /**
  * The screen for saving a session as a PDF.
@@ -82,9 +82,9 @@ export default function Report(): JSX.Element {
   const session = detail?.session
   const scores = session
     ? [
-        session.overallScore,
+        wholeScore(session.overallScore),
         ...(['face', 'pose', 'hands'] as const).map((c) =>
-          shownScore(session.channelScores[c], session.channelCoverage?.[c])
+          wholeScore(shownScore(session.channelScores[c], session.channelCoverage?.[c]))
         )
       ]
     : []

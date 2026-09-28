@@ -774,45 +774,127 @@ button.block {
   gap: 24px;
 }
 
-.moment {
+/* ---------------------------------------------------------------- results, as read
+
+   The results screen opens with a sentence, not a number. The summary is set larger than the
+   rest of the text because it is the one paragraph everybody reads, and it should read as the
+   answer to "how did it go" rather than as a caption. */
+
+.headline {
+  margin-bottom: 16px;
+}
+
+.headline p {
+  margin: 0;
+  font-size: 16.5px;
+  line-height: 1.6;
+}
+
+/* The word under a score, in the colour of its band, so the number is not left to speak for
+   itself. The same three bands colour the scores on the list of sessions. */
+.band-word {
+  margin-top: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.band-word.good {
+  color: var(--good);
+}
+
+.band-word.fair {
+  color: var(--warn);
+}
+
+.band-word.poor {
+  color: var(--bad);
+}
+
+.legend {
+  color: var(--muted);
+  font-size: 13px;
+  margin: -6px 0 18px;
+}
+
+/* Each occurrence of a finding, as a time that jumps the video to it. */
+.times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 2px;
+}
+
+.time-chip {
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 12.5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.time-chip:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.time-chip.current {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.time-chip:disabled {
+  cursor: default;
+}
+
+.finding-tip {
+  margin-top: 8px;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+/* How the scores were worked out: one line that opens into the breakdown and both charts. */
+.behind {
+  margin-top: 16px;
+}
+
+.behind-toggle {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
   text-align: left;
+  font: inherit;
+  font-weight: 500;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 9px 12px;
-  margin-bottom: 8px;
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  color: var(--text);
   cursor: pointer;
 }
 
-.moment:hover {
+.behind-toggle:hover {
   border-color: var(--brand);
 }
 
-.moment.current {
-  border-color: var(--brand);
-  background: var(--brand-softer);
+.behind-arrow {
+  color: var(--muted);
+  width: 12px;
 }
 
-.stamp {
-  font-variant-numeric: tabular-nums;
+.behind-body {
+  margin-top: 16px;
+}
+
+.advice-detail-label {
   font-weight: 600;
-  background: var(--surface-2);
-  border-radius: 6px;
-  padding: 2px 7px;
-  font-size: 12px;
   color: var(--text-2);
-}
-
-.moment-text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ---------------------------------------------------------------- video */

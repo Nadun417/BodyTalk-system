@@ -273,7 +273,9 @@ function scoreCell(
     stack: [
       { text: label.toUpperCase(), style: 'scoreLabel' },
       {
-        text: score === null || score === undefined ? '—' : String(score),
+        // A whole number, as on the results screen, so the two never show 86 and 85.9 for
+        // the same session.
+        text: score === null || score === undefined ? '—' : String(Math.round(score)),
         style: 'scoreValue',
         color: lead ? BRAND : INK
       },

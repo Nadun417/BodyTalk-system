@@ -56,6 +56,10 @@ export function shortDate(iso: string): string {
   return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+/** Where the bands begin. Named so the sentence explaining them can never disagree with them. */
+const GOOD_FROM = 75
+const FAIR_FROM = 55
+
 /**
  * Which of three broad bands a score falls in, used to colour it.
  *
@@ -66,9 +70,39 @@ export function shortDate(iso: string): string {
  */
 export function band(score: number | null | undefined): 'good' | 'fair' | 'poor' | 'none' {
   if (score === null || score === undefined) return 'none'
-  if (score >= 75) return 'good'
-  if (score >= 55) return 'fair'
+  if (score >= GOOD_FROM) return 'good'
+  if (score >= FAIR_FROM) return 'fair'
   return 'poor'
+}
+
+/**
+ * The band said in words, for under a score.
+ *
+ * A number on its own leaves the reader to decide whether 78 is good, and people who are
+ * practising for an interview tend to decide it is not. The three words are the three bands the
+ * app already colours scores by, so they add no judgement that was not already on the screen.
+ */
+export const BAND_WORD: Record<ReturnType<typeof band>, string> = {
+  good: 'Going well',
+  fair: 'Mixed',
+  poor: 'Worth a look',
+  none: ''
+}
+
+/** One line saying what the numbers mean, built from the same band edges the colours use. */
+export const SCORE_LEGEND =
+  `Scores are out of 100. ${GOOD_FROM} and above is going well, ${FAIR_FROM} to ` +
+  `${GOOD_FROM - 1} is mixed, and under ${FAIR_FROM} is worth a look.`
+
+/**
+ * A score as it is shown: a whole number.
+ *
+ * The analysis keeps its decimals, and the evaluation uses them. On the screen a decimal claims a
+ * precision these numbers do not have, for the same reason the bands above are broad, and it
+ * makes a row of four scores harder to read at a glance.
+ */
+export function wholeScore(score: number | null): number | null {
+  return score === null ? null : Math.round(score)
 }
 
 /** The colour a channel is drawn in, the same everywhere it appears. */

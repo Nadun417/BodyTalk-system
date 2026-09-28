@@ -126,8 +126,20 @@ describe('buildReportDocDefinition', () => {
 
   it('includes every score, and says which weighting produced them', () => {
     const doc = build()
-    for (const score of ['78', '66.4', '98.3', '71.4']) expect(doc).toContain(score)
+    for (const score of ['78', '66', '98', '71']) expect(doc).toContain(`"text":"${score}"`)
     expect(doc).toContain('Adaptive weighting')
+  })
+
+  /**
+   * The results screen shows whole numbers, because a decimal claims a precision these scores
+   * do not have. The report has to agree with it, or the same session reads 86 on screen and
+   * 85.9 on paper.
+   */
+  it('prints scores as whole numbers, as the results screen shows them', () => {
+    const doc = build()
+    for (const decimal of ['"text":"66.4"', '"text":"98.3"', '"text":"71.4"']) {
+      expect(doc).not.toContain(decimal)
+    }
   })
 
   /**
@@ -150,7 +162,7 @@ describe('buildReportDocDefinition', () => {
 
     const full = build({ channelMetrics: withGestures })
     expect(full).not.toContain('too little to score')
-    expect(full).toContain('71.4')
+    expect(full).toContain('"text":"71"')
     expect(full).toContain('"text":"40"')
     expect(full).toContain('29.6')
 
@@ -163,11 +175,11 @@ describe('buildReportDocDefinition', () => {
     })
     expect(thin.split(note).length - 1).toBe(1)
     // Neither the score nor the averages behind it, which come from the same few seconds.
-    expect(thin).not.toContain('71.4')
+    expect(thin).not.toContain('"text":"71"')
     expect(thin).not.toContain('"text":"40"')
     expect(thin).not.toContain('29.6')
     // The other channels are untouched.
-    expect(thin).toContain('66.4')
+    expect(thin).toContain('"text":"66"')
     expect(thin).toContain('32.6')
   })
 
