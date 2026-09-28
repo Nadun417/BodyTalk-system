@@ -109,6 +109,33 @@ export function MoonIcon(props: IconProps): JSX.Element {
   )
 }
 
+/** An arrow pointing left, for going back to the previous screen. */
+export function ArrowLeftIcon(props: IconProps): JSX.Element {
+  return (
+    <Svg {...props}>
+      <path d="M19 12H5M11 6l-6 6 6 6" />
+    </Svg>
+  )
+}
+
+/** A downward chevron, drawn over a drop-down list to show that it opens. */
+export function ChevronDownIcon(props: IconProps): JSX.Element {
+  return (
+    <Svg {...props}>
+      <path d="M6 9l6 6 6-6" />
+    </Svg>
+  )
+}
+
+/** A tick, for confirming that something was saved. */
+export function CheckIcon(props: IconProps): JSX.Element {
+  return (
+    <Svg {...props}>
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </Svg>
+  )
+}
+
 /** A screen on a stand, for "Match Windows". */
 export function MonitorIcon(props: IconProps): JSX.Element {
   return (

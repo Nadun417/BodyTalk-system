@@ -57,21 +57,49 @@ export function clampSetting(name: keyof typeof SETTING_RANGES, value: unknown):
 }
 
 /**
- * The reason a short video is worth warning about, written from the rules themselves.
+ * The values a setting can be picked from, in order, for the lists on the settings screen.
+ *
+ * Offering a list rather than a box to type in means an impossible value can never be entered
+ * in the first place. A value stored before the lists existed need not fall on one of the
+ * steps, 57 seconds for instance, so it is added to the list rather than the list silently
+ * showing something other than what is actually in use.
+ */
+export function settingChoices(name: keyof typeof SETTING_RANGES, current?: number): number[] {
+  const { min, max, step } = SETTING_RANGES[name]
+  const values: number[] = []
+  for (let v = min; v <= max; v += step) values.push(v)
+  if (current !== undefined && Number.isFinite(current) && !values.includes(current)) {
+    values.push(current)
+    values.sort((a, b) => a - b)
+  }
+  return values
+}
+
+/**
+ * Why a shorter video is worth a second thought, said in everyday words and built from the
+ * rules themselves.
  *
  * A finding is only reported when the behaviour behind it lasted long enough to be worth
- * mentioning. The longest of those waits is thirty seconds, so on a video near the thirty
- * second floor it can essentially never be reported, and the twenty second one barely can.
- * The sentence is kept here rather than in the screen because it is a fact about the analysis,
- * and the settings screen is not the only place it might need to be said.
+ * mentioning. The longest of those waits is thirty seconds, for hands held still, and the next
+ * is twenty, for an expression that barely changes. On a video near the thirty second floor
+ * those two can hardly ever be reported, so a short video can look better than it really was.
+ * That last point is the one a person needs, so the sentence ends on it.
+ *
+ * The first version of this sentence was accurate and hard to read ("Findings are only reported
+ * when the behaviour lasted a while. The longest needs 30 seconds in a row..."), and the person
+ * it was written for said so. It is shown only when the setting is below the recommended value,
+ * which is when it applies.
  */
 export const SHORT_VIDEO_WARNING =
-  'Findings are only reported when the behaviour lasted a while. The longest needs 30 seconds ' +
-  'in a row, and a still expression needs 20. A recording near the 30 second floor can barely ' +
-  'produce either, so it will look quieter than a longer one rather than better.'
+  'Shorter videos give BodyTalk less to go on. Two things it looks for need a long stretch to ' +
+  'show up: your hands staying very still (30 seconds in a row) and your expression barely ' +
+  'changing (20 seconds). On a short video they may never appear, so fewer findings does not ' +
+  'always mean it went better.'
 
-/** What changing the frame rate costs, said in the same place for the same reason. */
+/**
+ * What changing how many pictures are checked each second costs, for the same reason and in the
+ * same plain words. Shown only when the setting is not the recommended 6.
+ */
 export const ANALYSIS_FPS_WARNING =
-  'Every measurement was set up at 6 frames a second. At any other rate a second of analysis ' +
-  'is built from a different number of frames, so findings can come out differently and the ' +
-  'scores cannot be compared with sessions analysed at 6.'
+  'BodyTalk was set up and tested at 6 pictures a second. At any other setting your results may ' +
+  'come out differently, and they cannot be fairly compared with videos analysed at 6.'

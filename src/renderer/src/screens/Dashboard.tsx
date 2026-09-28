@@ -24,6 +24,7 @@ import {
   SCORE_LEGEND
 } from '../lib/format'
 import { groupFindings, howOften, type FindingGroup } from '../lib/findings'
+import { ChevronDownIcon } from '../components/Icons'
 
 /**
  * The results screen.
@@ -479,8 +480,8 @@ function BehindTheScores({ children }: { children: ReactNode }): JSX.Element {
 
   return (
     <section className="behind">
-      <button className="behind-toggle" aria-expanded={open} onClick={toggle}>
-        <span className="behind-arrow">{open ? '▾' : '▸'}</span>
+      <button type="button" className="disclosure" aria-expanded={open} onClick={toggle}>
+        <ChevronDownIcon className="disclosure-arrow" />
         <span>
           <strong>Behind the scores</strong>
           <span className="muted">

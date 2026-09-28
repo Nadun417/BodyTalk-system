@@ -259,55 +259,152 @@ body {
   }
 }
 
-/* ---------------------------------------------------------------- settings fields
+/* ---------------------------------------------------------------- settings
 
-   One setting: what it is called, what it costs to change, and the box to change it in. The
-   label wraps all three so that clicking any part of it lands in the box, which is worth more
-   here than anywhere else in the app: these are the only typed-in values in it. */
+   Read top to bottom like a short form: a way back, what the screen is for, then each setting
+   as its name, one sentence on what it does, and the list to pick from. Left-aligned rather than
+   centred, because a form is read down its left edge. */
 
-.field {
-  display: block;
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 10px -10px;
+  padding: 7px 10px;
+  font-weight: 550;
 }
 
-.field-label {
+.back-button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.settings-head {
+  margin-bottom: 20px;
+}
+
+.settings-head h1 {
+  margin: 0 0 6px;
+}
+
+/* Balanced across its lines, so a single word is not left alone at the end. */
+.settings-head .subtitle {
+  margin: 0;
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+
+.settings-section + .settings-section {
+  margin-top: 16px;
+}
+
+.settings-section h2 {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--muted);
+  margin: 0 0 14px;
+}
+
+.setting-label {
   display: block;
   font-weight: 650;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
-.field-note {
-  display: block;
+.setting-help {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 13.5px;
   line-height: 1.5;
-  margin-bottom: 10px;
+  margin: 0 0 10px;
+  max-width: 62ch;
 }
 
-.field-input {
+.setting-empty {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+.setting-control {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.field-input input {
+/* The list's own arrow is hidden and a drawn one laid over it, so it matches every other icon
+   in the app and follows the theme. The drawn arrow lets clicks through to the list beneath. */
+.select-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.select-wrap select {
+  appearance: none;
   font: inherit;
-  font-weight: 600;
-  width: 120px;
-  padding: 9px 10px;
+  font-weight: 550;
+  min-width: 220px;
+  padding: 9px 38px 9px 12px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
   color: var(--text);
+  cursor: pointer;
+  transition: border-color 150ms ease-out;
 }
 
-.field-input input:focus-visible {
+.select-wrap select:hover {
+  border-color: var(--brand);
+}
+
+.select-wrap select:focus-visible {
   outline: 2px solid var(--brand);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
-.field-input .unit {
+.select-arrow {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  translate: 0 -50%;
+  width: 16px;
+  height: 16px;
   color: var(--muted);
+  pointer-events: none;
+}
+
+.saved-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 13px;
+  font-weight: 550;
+  color: var(--good);
+  min-height: 18px;
+}
+
+.saved-note .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.setting-notice {
+  margin-bottom: 0;
+  max-width: 62ch;
+  line-height: 1.5;
+}
+
+.settings-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .select-wrap select {
+    transition: none;
+  }
 }
 
 /* A location on this machine, which can be long and is not prose. It is allowed to wrap
@@ -935,7 +1032,10 @@ button.block {
   margin-top: 16px;
 }
 
-.behind-toggle {
+/* A line that opens to show more: "Behind the scores" on the results screen and "Advanced
+   settings" on the settings screen. One style for both, so the same kind of control looks the
+   same wherever it appears. The arrow points right while closed and turns down when open. */
+.disclosure {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -951,13 +1051,34 @@ button.block {
   cursor: pointer;
 }
 
-.behind-toggle:hover {
+.disclosure:hover:not(:disabled) {
   border-color: var(--brand);
+  background: var(--surface);
 }
 
-.behind-arrow {
+.disclosure:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.disclosure-arrow {
   color: var(--muted);
-  width: 12px;
+  transform: rotate(-90deg);
+  transition: transform 150ms ease-out;
+}
+
+.disclosure[aria-expanded='true'] .disclosure-arrow {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .disclosure-arrow {
+    transition: none;
+  }
+}
+
+.disclosure-body {
+  margin-top: 12px;
 }
 
 .behind-body {
