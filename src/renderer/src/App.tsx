@@ -7,6 +7,7 @@ import Dashboard from './screens/Dashboard'
 import Report from './screens/Report'
 import Settings from './screens/Settings'
 import { GearIcon, MonitorIcon, MoonIcon, SunIcon } from './components/Icons'
+import logoUrl from './assets/logo.png'
 import { effectiveTheme, readChoice, saveChoice, CHOICE_NAME, type ThemeChoice } from './lib/theme'
 
 /** Asks Windows, through the page, whether it is currently set to dark. */
@@ -49,7 +50,9 @@ export default function App(): JSX.Element {
     <div className="app">
       <header className="topbar">
         <Link to="/" className="logo">
-          <span className="logo-mark">B</span>
+          {/* Made from the same picture as the Windows icon, so the two always match. Left
+              without a description for screen readers, because the name is written beside it. */}
+          <img className="logo-mark" src={logoUrl} alt="" width={32} height={32} />
           <span className="logo-word">BodyTalk</span>
         </Link>
         <div className="topbar-spacer" />

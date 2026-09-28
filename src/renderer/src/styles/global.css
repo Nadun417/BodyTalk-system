@@ -141,16 +141,13 @@ body {
   color: inherit;
 }
 
+/* The BodyTalk icon, made by scripts/make_icon.py from the same master picture as the Windows
+   icon. It keeps its own colours on the dark screen too, so it always matches the icon on the
+   taskbar. */
 .logo-mark {
+  display: block;
   width: 32px;
   height: 32px;
-  border-radius: 9px;
-  background: var(--brand);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-size: 17px;
 }
 
 .logo-word {

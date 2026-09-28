@@ -33,13 +33,19 @@ extraResources:
 # talks to the internet, which is exactly what this one is not supposed to do.
 publish: null
 
+# The BodyTalk icon, for the app, its installer and its uninstaller. The icon file and the logo
+# the app shows are both made from build/icon-source.png by scripts/make_icon.py, so they match.
 win:
   target:
     - nsis
   artifactName: ${productName}-${version}-setup.${ext}
+  icon: build/icon.ico
 
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico

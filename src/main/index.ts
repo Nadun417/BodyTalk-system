@@ -15,6 +15,10 @@ function createWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     title: 'BodyTalk',
+    // The installed app takes its icon from the program file itself, which the installer
+    // builder stamps with the BodyTalk mark. Run from the source folder there is no such file,
+    // so the window is pointed at the icon directly, and looks the same either way.
+    icon: app.isPackaged ? undefined : join(__dirname, '../../build/icon.ico'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
