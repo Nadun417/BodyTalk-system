@@ -6,7 +6,8 @@ was seen directly rather than falling back on how often it was detected.
 
 Three measurements go into the posture score:
 
-  posture uprightness   the angle the head and shoulders lean away from vertical
+  posture uprightness   how far the head, or the whole upper body, tilts sideways from
+                        vertical, whichever of the two is worse
   shoulder levelness    how much higher one shoulder sits than the other
   body sway             how much the upper body drifts from side to side
 
@@ -102,11 +103,13 @@ class PoseAnalyser(Analyser):
 
     channel = "pose"
 
-    #: The three measurements averaged into the posture score. "Sitting upright" covers
-    #: drifting off a vertical line, including leaning sideways, but not slouching toward
-    #: the camera, which a single lens cannot see reliably. The wording stays within that.
+    #: The three measurements averaged into the posture score. "Staying upright" covers
+    #: tilting sideways off a vertical line, whether it is the head that tilted or the whole
+    #: upper body, but not slouching toward the camera, which a single lens cannot see
+    #: reliably. It used to be called "sitting upright", which named the body when a tilted
+    #: head on a still body raises it just as well. The wording stays within what is measured.
     METRICS = (
-        MetricSpec("uprightness", "sitting upright"),
+        MetricSpec("uprightness", "staying upright"),
         MetricSpec("levelness", "level shoulders"),
         MetricSpec("sway", "sitting still"),
     )

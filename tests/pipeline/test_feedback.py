@@ -162,6 +162,16 @@ def test_the_upright_message_does_not_claim_to_detect_a_forward_slouch():
     assert "forward" not in found[0].message.lower()
 
 
+def test_the_upright_message_does_not_claim_the_shoulders_moved():
+    """A head tilted over a perfectly still body empties this measurement on its own, which
+    the analyser tests show directly. So the message can say something tilted off upright,
+    but it cannot say which, and it must not settle on the shoulders."""
+    found = [e for e in pose_events(seconds(6, PoseW, uprightness=10.0)) if e.type == "slouching"]
+    message = found[0].message
+    assert "your head or your upper body" in message.lower()
+    assert "shoulder" not in message.lower()
+
+
 def test_leaning_to_one_side_needs_ten_seconds():
     assert [e for e in pose_events(seconds(6, PoseW, levelness=10.0)) if e.type == "leaning_to_side"] == []
     assert [e for e in pose_events(seconds(14, PoseW, levelness=10.0)) if e.type == "leaning_to_side"]

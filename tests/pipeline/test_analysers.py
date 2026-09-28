@@ -381,13 +381,23 @@ def test_upright_still_body_scores_full_marks():
     assert detail.score == 100.0
 
 
-def test_leaning_body_scores_low_on_uprightness():
+def test_a_tilted_head_alone_scores_low_on_uprightness():
+    """The shoulders never move here: only the nose goes sideways, which is a head tilted
+    over a still body. It still empties the uprightness score, because the measurement takes
+    the worse of the head-over-shoulders angle and the shoulders-over-hips angle.
+
+    That is the reason the message about it says "your head or your upper body" instead of
+    naming the shoulders. It is the behaviour, not a defect: a tilted head is worth
+    mentioning. Claiming the shoulders moved would be the defect."""
     analyser = PoseAnalyser(aspect=1.78)
     # Nose pushed well to one side of the shoulder midpoint over a short neck.
     frames = [frame(t / 6.0, pose=build_pose(1.78, lean_x=0.15, neck_length=0.20)) for t in range(6)]
     detail = analyser.analyse_detail(pose_window(frames))
     assert detail.lean_degrees > 25.0
     assert detail.uprightness == 0.0
+    # The body itself is untouched: shoulders level, and nothing drifted sideways.
+    assert detail.levelness == 100.0
+    assert detail.sway == 100.0
 
 
 def test_uneven_shoulders_score_low_on_levelness():

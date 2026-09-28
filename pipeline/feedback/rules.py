@@ -240,10 +240,16 @@ def pose_events(pose_windows: Sequence) -> list[Event]:
     """Leaning off upright, leaning to one side, and swaying.
 
     Worth being precise about what the first one covers. It is measured in the flat image,
-    so it catches the head and shoulders drifting off an upright line, and it catches
-    leaning sideways. It does **not** catch slouching forward, which is movement toward
-    the camera and cannot be seen reliably from a single lens. The wording below is
-    deliberately limited to what was actually observed.
+    so it catches sideways tilt away from vertical, and it does **not** catch slouching
+    forward, which is movement toward the camera and cannot be seen reliably from a single
+    lens.
+
+    It is also two things at once, whichever is worse: the head tilted off the line of the
+    shoulders, and the shoulders tilted off the line of the hips. That means a tilted head
+    alone can raise it while the body has not moved at all, so the message says "your head
+    or your upper body" rather than naming the shoulders. Saying the shoulders moved when
+    only the head did is the kind of claim a user can see is wrong, and somebody who catches
+    the app being wrong once has no reason to believe the rest of it.
     """
     events: list[Event] = []
 
@@ -254,8 +260,8 @@ def pose_events(pose_windows: Sequence) -> list[Event]:
         "pose",
         "slouching",
         "medium",
-        lambda a, b: f"Your head and shoulders drifted off an upright line between {clock(a)} and {clock(b)}.",
-        "Reset tall through the spine. Imagine a string from the crown of your head.",
+        lambda a, b: f"Your head or your upper body tilted off an upright line between {clock(a)} and {clock(b)}.",
+        "Settle back upright, with your head level over your shoulders.",
     )
 
     events += _events(
