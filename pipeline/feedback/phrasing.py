@@ -144,11 +144,22 @@ def is_acceptable(original: str, candidate: str) -> tuple[bool, str]:
     if forbidden:
         return False, f"says something about the person: {forbidden.group(0)!r}"
 
-    # No number may appear that was not in the sentence it came from. Times and counts are
-    # facts, and the model has no business inventing or altering one.
-    introduced = set(re.findall(r"\d+", text)) - set(re.findall(r"\d+", original))
+    # The numbers have to come back exactly as they went in. Times and counts are facts, and
+    # the model has no business inventing one, altering one, or dropping one.
+    #
+    # Losing one matters as much as adding one, which is the half this check originally
+    # missed. A rewrite that quietly returns the advice without its times reads perfectly
+    # well and is no longer tied to anything the user can go back and watch, and a
+    # piece of advice with nothing behind it is the thing this project is careful not to
+    # produce anywhere else.
+    before = set(re.findall(r"\d+", original))
+    after = set(re.findall(r"\d+", text))
+    introduced = after - before
     if introduced:
         return False, f"introduced a number: {sorted(introduced)}"
+    dropped = before - after
+    if dropped:
+        return False, f"dropped a number: {sorted(dropped)}"
 
     if "?" in text:
         return False, "asks a question"
@@ -249,9 +260,21 @@ def _first_model_in(folder: Path) -> Path | None:
 def apply_to(events, advice, rephraser: "Rephraser | None") -> dict:
     """Reword the advice in a finished set of findings, and report what happened.
 
-    Only the parts that are advice are touched. An event's `message` and a recommendation's
-    `title` are left exactly as the rules wrote them, because those carry the times and the
-    claim about what was visible, and those are not the model's to alter.
+    Only the parts that are advice are touched. An event's `message`, a recommendation's
+    `title` and the observation half of a recommendation are left exactly as the rules wrote
+    them, because those carry the times and the claim about what was visible, and those are
+    not the model's to alter.
+
+    That last one was not always true, and the failure is worth recording. A recommendation is
+    displayed as one paragraph, and it used to be reworded as one: the observation was joined
+    to the advice before the model saw it. So the sentence this function promised never to show
+    the model was being shown to it anyway, through the joined text. On real output the model
+    replied with the advice alone, dropping both times and the observation with them, and
+    elsewhere rewrote an observation that the head had moved around a lot into an instruction
+    to keep the head steady, turning something seen into something to do. Both
+    answers passed every check, because the checks look for what a rewrite adds, not for what
+    it quietly leaves out. Now only the advice half is sent, and the paragraph is rebuilt
+    afterwards from the untouched observation.
 
     Returns a small summary so a run can record how much of its wording came from the model
     and how often the model's wording was refused. That number is worth keeping: it is the
@@ -267,8 +290,15 @@ def apply_to(events, advice, rephraser: "Rephraser | None") -> dict:
         event.phrasing = result.phrasing
 
     for recommendation in advice:
-        result = rephraser.rephrase(recommendation.body)
-        recommendation.body = result.text
+        # Older results, and any recommendation built without the two halves, have nothing
+        # safe to send, so they keep their wording rather than being handed over whole.
+        if not recommendation.advice:
+            continue
+        result = rephraser.rephrase(recommendation.advice)
+        recommendation.advice = result.text
+        recommendation.body = " ".join(
+            part for part in (recommendation.observation, result.text) if part
+        )
         recommendation.phrasing = result.phrasing
 
     return {

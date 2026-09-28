@@ -402,6 +402,16 @@ class Recommendation:
     basis_event_types: list[str] = field(default_factory=list)
     #: Where the wording of `body` came from: "template" or "llm". `title` is never reworded.
     phrasing: str = "template"
+    #: `body` split into the half that may be reworded and the half that may not.
+    #:
+    #: `observation` is what was seen and when. `advice` is what to do about it. They are
+    #: joined into `body` for display, but only `advice` is ever handed to the rewording
+    #: step, because a model given the whole sentence rewrites the observation too: on real
+    #: output it dropped both times altogether, and turned a statement that
+    #: something had been seen into an instruction to go and do it. Keeping the halves apart
+    #: here is what makes that impossible rather than merely discouraged.
+    observation: str = ""
+    advice: str = ""
     #: Which measurement inside the channel actually produced this score, in one sentence
     #: with the numbers in it. Kept apart from `body` rather than joined onto it because
     #: `body` is advice and gets reworded, while this is arithmetic and must not be. The
@@ -477,6 +487,8 @@ def recommendations(
                 kind="improve",
                 title=f"Work on your {CHANNEL_LABEL.get(channel, channel)}",
                 body=f"{worst.message} {worst.suggestion}",
+                observation=worst.message,
+                advice=worst.suggestion,
                 basis_event_types=sorted(
                     {e.type for e in events if e.channel == channel and SEVERITY_WEIGHT.get(e.severity, 0)}
                 ),
@@ -510,6 +522,10 @@ def recommendations(
                 kind="maintain",
                 title=f"Keep doing what you did with your {CHANNEL_LABEL.get(best, best)}",
                 body="This was your strongest channel in this session. Whatever you were doing there, keep it.",
+                # Which channel scored best is a fact about the session, so it is the
+                # observation half and stays as written. Only the encouragement is advice.
+                observation="This was your strongest channel in this session.",
+                advice="Whatever you were doing there, keep it.",
                 detail=_strength_for(best, metric_reports),
             )
         )

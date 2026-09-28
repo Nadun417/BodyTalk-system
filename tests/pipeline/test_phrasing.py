@@ -15,9 +15,36 @@ from __future__ import annotations
 
 import pytest
 
-from feedback.phrasing import Rephraser, british, is_acceptable
+from feedback.phrasing import Rephraser, apply_to, british, is_acceptable
+from feedback.rules import Event, Recommendation
 
 ADVICE = "Keep your hands visible so natural gestures come through."
+
+
+class AlwaysRewords:
+    """A stand-in for the model that always answers, and always answers the same thing.
+
+    Real answers vary, which is exactly what makes them useless for pinning behaviour down.
+    What is being tested here is not the wording that comes back but which sentences are ever
+    sent, so a rephraser that replies with a fixed line makes any leak obvious: if the
+    observation reached it, the observation is what disappears.
+    """
+
+    REPLY = "Try keeping your hands where the camera can see them."
+
+    def __init__(self):
+        self.asked: list[str] = []
+        self.available = True
+        self.model_path = None
+        self.used = 0
+        self.rejected = 0
+
+    def rephrase(self, text: str):
+        self.asked.append(text)
+        self.used += 1
+        from feedback.phrasing import Rephrased
+
+        return Rephrased(self.REPLY, "llm")
 
 
 class TestWhatMayBeShown:
@@ -60,6 +87,17 @@ class TestWhatMayBeShown:
         )
         assert ok, why
 
+    def test_a_number_that_has_gone_missing_is_refused(self):
+        """Losing a time matters as much as inventing one. Advice with the moment taken out
+        of it reads perfectly well and is no longer tied to anything the user can go back and
+        watch."""
+        ok, why = is_acceptable(
+            "Your hand came up to your face around 1:20. A common habit.",
+            "Try resting your hands below shoulder level.",
+        )
+        assert not ok
+        assert "dropped a number" in why
+
     def test_an_answer_that_starts_explaining_itself_is_refused(self):
         ok, why = is_acceptable(ADVICE, "Sure! Here is a warmer version of that sentence.")
         assert not ok
@@ -79,6 +117,68 @@ class TestWhatMayBeShown:
     def test_quotes_and_extra_lines_are_refused(self):
         assert is_acceptable(ADVICE, '"Try keeping your hands in shot."')[0] is False
         assert is_acceptable(ADVICE, "Try this.\nAnd also this.")[0] is False
+
+
+class TestWhatIsEverSentToTheModel:
+    """The first line of defence, and the one that failed.
+
+    The checks in the class above are the second line: they judge an answer after it comes
+    back. These judge the question. A sentence never sent cannot be rewritten wrongly, and the
+    times and the claim about what was seen are in that category.
+    """
+
+    def _advice(self):
+        return Recommendation(
+            rank=1,
+            channel="face",
+            kind="improve",
+            title="Work on your face and eye contact",
+            body="Frequent head movement between 0:40 and 0:52. A steadier head position comes across as composed.",
+            observation="Frequent head movement between 0:40 and 0:52.",
+            advice="A steadier head position comes across as composed.",
+        )
+
+    def test_only_the_advice_half_of_a_recommendation_is_sent(self):
+        rephraser = AlwaysRewords()
+        advice = [self._advice()]
+        apply_to([], advice, rephraser)
+        assert rephraser.asked == ["A steadier head position comes across as composed."]
+
+    def test_the_observation_and_its_times_survive_the_rewording(self):
+        """Caught on real output. Given the whole paragraph, the model replied with the advice
+        alone, and "between 0:40 and 0:52" went with the sentence it deleted."""
+        rephraser = AlwaysRewords()
+        advice = [self._advice()]
+        apply_to([], advice, rephraser)
+        assert advice[0].body.startswith("Frequent head movement between 0:40 and 0:52.")
+        assert advice[0].body.endswith(AlwaysRewords.REPLY)
+        assert advice[0].phrasing == "llm"
+
+    def test_an_observation_is_never_sent_even_when_the_advice_is_empty(self):
+        rephraser = AlwaysRewords()
+        advice = [self._advice()]
+        advice[0].advice = ""
+        apply_to([], advice, rephraser)
+        assert rephraser.asked == []
+        assert advice[0].body.startswith("Frequent head movement")
+
+    def test_an_events_message_is_never_sent_only_its_suggestion(self):
+        rephraser = AlwaysRewords()
+        event = Event(
+            60.0,
+            72.0,
+            "hands",
+            "hand_to_face",
+            "low",
+            "Your hand came up to your face around 1:00.",
+            "A common habit. Resting your hands below shoulder level keeps the frame clean.",
+        )
+        apply_to([event], [], rephraser)
+        assert rephraser.asked == [
+            "A common habit. Resting your hands below shoulder level keeps the frame clean."
+        ]
+        assert event.message == "Your hand came up to your face around 1:00."
+        assert event.suggestion == AlwaysRewords.REPLY
 
 
 class TestSpelling:
