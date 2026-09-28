@@ -109,9 +109,23 @@ class PoseAnalyser(Analyser):
     #: reliably. It used to be called "sitting upright", which named the body when a tilted
     #: head on a still body raises it just as well. The wording stays within what is measured.
     METRICS = (
-        MetricSpec("uprightness", "staying upright"),
-        MetricSpec("levelness", "level shoulders"),
-        MetricSpec("sway", "sitting still"),
+        MetricSpec(
+            "uprightness",
+            "staying upright",
+            low_reading="your head or upper body tilting to one side",
+        ),
+        MetricSpec(
+            "levelness",
+            "keeping your shoulders level",
+            low_reading="your shoulders not sitting level",
+        ),
+        # "Keeping still" rather than "sitting still", because the same measurement runs on
+        # somebody standing, and it only ever sees movement from side to side.
+        MetricSpec(
+            "sway",
+            "keeping still",
+            low_reading="you swaying from side to side",
+        ),
     )
 
     def __init__(

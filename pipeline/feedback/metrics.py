@@ -65,6 +65,8 @@ class MetricReport:
     #: how many points, out of 100, this measurement pulled the channel score down by.
     #: Always 0 for a measurement that does not count toward the score.
     shortfall: float
+    #: what a low reading of it means, said as something that happened, for the summary
+    low_reading: str = ""
 
     @property
     def negligible(self) -> bool:
@@ -141,6 +143,7 @@ def _report_for(
         channel=channel,
         metric=spec.attribute,
         label=spec.label,
+        low_reading=spec.low_reading,
         scored=spec.scored,
         mean_score=mean_score,
         windows=len(present),
@@ -164,13 +167,19 @@ def explain_channel(
     channel_score: float | None,
     reports: Sequence[MetricReport],
 ) -> str | None:
-    """One plain sentence saying which measurement held a channel back, and by how much.
+    """A couple of plain sentences saying which measurement held a channel back, by how much.
 
-    Written as numbers rather than as adjectives on purpose. "Expression variation averaged
-    1 out of 100" is checkable and tells somebody what to change; "your expression was
-    somewhat lacking" is neither. It also avoids having to invent cut-offs for words like
-    "poor" or "excellent", which would be three more unevidenced thresholds in a project
-    that already has enough of them.
+    Written with numbers rather than adjectives on purpose. "Varying your expression, at 1 out
+    of 100" is checkable and tells somebody what to change; "your expression was somewhat
+    lacking" is neither. It also avoids having to invent cut-offs for words like "poor" or
+    "excellent", which would be three more unevidenced thresholds in a project that already
+    has enough of them.
+
+    Each label is worded so that a higher number is plainly better, and each number is said
+    with "out of 100" or "scored", so nobody has to guess which way round it goes. The
+    earlier wording, of the form "What held this back most was level shoulders, which averaged
+    60 out of 100. For comparison, staying upright 75 and sitting still 95", left a reader to
+    work out that 95 was good and 60 was not.
 
     Returns nothing when there is nothing worth explaining, either because the channel was
     never scored or because no single measurement held it back.
@@ -181,12 +190,11 @@ def explain_channel(
     if driver is None or driver.mean_score is None:
         return None
 
-    # "What held this back most" rather than "most of the gap came from", because the
-    # first is true by construction and the second is not. The driving measurement is the
-    # largest single contributor, which does not have to mean it is more than half of it.
+    # "The biggest factor" rather than "most of it came from", because the first is true by
+    # construction and the second is not. The driving measurement is the largest single
+    # contributor, which does not have to mean it is more than half of it.
     sentence = (
-        f"What held this back most was {driver.label}, which averaged "
-        f"{driver.mean_score:.0f} out of 100."
+        f"The biggest factor was {driver.label}, at {driver.mean_score:.0f} out of 100."
     )
 
     # Naming what went well alongside it is not decoration. Without it the sentence reads
@@ -197,14 +205,14 @@ def explain_channel(
         if r.scored and r.metric != driver.metric and r.mean_score is not None
     ]
     if others:
-        sentence += (
-            f" For comparison, {_join([f'{r.label} {r.mean_score:.0f}' for r in others])}."
-        )
+        parts = [f"{r.label} scored {r.mean_score:.0f}" for r in others]
+        joined = _join(parts)
+        sentence += f" {joined[0].upper()}{joined[1:]}."
 
     if driver.coverage < 0.5:
         sentence += (
-            f" It could only be measured in {driver.coverage * 100:.0f} percent of the "
-            "session, so treat it as a hint rather than a finding."
+            f" That could only be measured for {driver.coverage * 100:.0f}% of the recording, "
+            "so take it as a rough guide."
         )
 
     return sentence

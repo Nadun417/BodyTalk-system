@@ -23,6 +23,22 @@ enough to read in one sitting.
 Everything produced here describes something that was seen, at a time it was seen, with a
 suggestion attached. Nothing here says anybody was nervous, unconfident or unprepared, and
 no rule should ever be added that does.
+
+**How it is worded.** The person reading this is practising for an interview, is probably not
+technical, and did not ask to be graded. So every sentence follows the same few rules, which
+were written down after the first version was found hard to read by the person it was for:
+
+- Talk to them: "you", everyday words, one idea to a sentence.
+- Say what was seen and when, "from 0:40 to 0:52". Never why, and never how they felt or
+  how they came across as a person.
+- Say exactly what the measurement can see and no more. Several earlier messages claimed
+  more: "you looked away" when only the turn of the head is measured, and "you leaned to one
+  side" when what is measured is one shoulder sitting higher than the other.
+- The tip is one thing to try, starting with a verb, and justified by what it does for the
+  answer rather than by how it makes somebody seem. Earlier tips leaned on "comes across as
+  composed" and "stillness reads as calm", which are claims about a person's manner.
+- None of the app's own vocabulary. "Channel", "metric" and "score came out lowest" are
+  words for the people who built it.
 """
 
 from __future__ import annotations
@@ -172,8 +188,11 @@ def face_events(face_windows: Sequence) -> list[Event]:
         "face",
         "looking_away",
         "medium",
-        lambda a, b: f"You looked away from the camera between {clock(a)} and {clock(b)}.",
-        "Try to keep your eyes toward the camera. It reads as engagement.",
+        # "Turned your head" and not "looked away": the measurement is the angle of the
+        # head, and someone can look away with their head still or keep their eyes on the
+        # lens while their head is turned.
+        lambda a, b: f"You turned your head away from the camera from {clock(a)} to {clock(b)}.",
+        "Try keeping your face toward the camera, as if it were the person asking.",
     )
 
     events += _events(
@@ -183,8 +202,11 @@ def face_events(face_windows: Sequence) -> list[Event]:
         "face",
         "flat_expression",
         "low",
-        lambda a, b: f"Your expression stayed quite still from {clock(a)} to {clock(b)}.",
-        "A little natural variation, the odd nod or smile, keeps an interviewer with you.",
+        lambda a, b: f"Your expression barely changed from {clock(a)} to {clock(b)}.",
+        # No nod in this one. A nod is head movement, which another rule flags, and advice
+        # that sets off a different piece of advice is worse than none.
+        "Try letting your face react to what you're saying. An occasional smile or raised "
+        "eyebrow is plenty.",
     )
 
     events += _events(
@@ -194,8 +216,8 @@ def face_events(face_windows: Sequence) -> list[Event]:
         "face",
         "head_movement",
         "low",
-        lambda a, b: f"Frequent head movement between {clock(a)} and {clock(b)}.",
-        "A steadier head position comes across as composed.",
+        lambda a, b: f"Your head moved around a lot from {clock(a)} to {clock(b)}.",
+        "Try keeping your head a little steadier, especially while you're making a point.",
     )
 
     events += smile_events(face_windows)
@@ -228,8 +250,8 @@ def smile_events(face_windows: Sequence, ratio: float = 1.12, min_duration_s: fl
         "face",
         "smile",
         "info",
-        lambda a, b: f"Nice natural smile around {clock(a)}.",
-        "Keep those moments. They land well.",
+        lambda a, b: f"You smiled naturally around {clock(a)}.",
+        "Nice. Moments like that are worth keeping in your answers.",
     )
 
 
@@ -247,7 +269,7 @@ def pose_events(pose_windows: Sequence) -> list[Event]:
     It is also two things at once, whichever is worse: the head tilted off the line of the
     shoulders, and the shoulders tilted off the line of the hips. That means a tilted head
     alone can raise it while the body has not moved at all, so the message says "your head
-    or your upper body" rather than naming the shoulders. Saying the shoulders moved when
+    or upper body" rather than naming the shoulders. Saying the shoulders moved when
     only the head did is the kind of claim a user can see is wrong, and somebody who catches
     the app being wrong once has no reason to believe the rest of it.
     """
@@ -260,8 +282,8 @@ def pose_events(pose_windows: Sequence) -> list[Event]:
         "pose",
         "slouching",
         "medium",
-        lambda a, b: f"Your head or your upper body tilted off an upright line between {clock(a)} and {clock(b)}.",
-        "Settle back upright, with your head level over your shoulders.",
+        lambda a, b: f"Your head or upper body tilted to one side from {clock(a)} to {clock(b)}.",
+        "Try sitting tall, with your head straight above your shoulders.",
     )
 
     events += _events(
@@ -271,8 +293,11 @@ def pose_events(pose_windows: Sequence) -> list[Event]:
         "pose",
         "leaning_to_side",
         "low",
-        lambda a, b: f"You leaned to one side between {clock(a)} and {clock(b)}.",
-        "Square your shoulders to the camera now and then.",
+        # What is measured is one shoulder sitting higher than the other, so that is what it
+        # says. "You leaned to one side" used to be the message here, which both claimed more
+        # than the measurement sees and was hard to tell apart from the tilt rule above.
+        lambda a, b: f"One shoulder sat higher than the other from {clock(a)} to {clock(b)}.",
+        "Try letting both shoulders drop and rest at the same height.",
     )
 
     events += _events(
@@ -282,8 +307,8 @@ def pose_events(pose_windows: Sequence) -> list[Event]:
         "pose",
         "restlessness",
         "low",
-        lambda a, b: f"Noticeable swaying between {clock(a)} and {clock(b)}.",
-        "Plant both feet and settle your base. Stillness reads as calm.",
+        lambda a, b: f"You swayed from side to side from {clock(a)} to {clock(b)}.",
+        "Try planting both feet flat and keeping your weight even.",
     )
 
     return events
@@ -329,9 +354,9 @@ def hand_events(
         "hands",
         "hands_out_of_frame",
         "info",
-        lambda a, b: f"Your hands could not be seen between {clock(a)} and {clock(b)}.",
-        "Check your hands are inside the frame and well lit. Natural gestures support "
-        "what you say.",
+        lambda a, b: f"Your hands couldn't be seen from {clock(a)} to {clock(b)}.",
+        "If you use your hands while you talk, check they're inside the frame and well lit "
+        "so your gestures show up.",
     )
 
     events += _events(
@@ -341,8 +366,8 @@ def hand_events(
         "hands",
         "low_gesture",
         "info",
-        lambda a, b: f"Your hands stayed quite still for a long stretch from {clock(a)}.",
-        "A few natural gestures help emphasise your key points.",
+        lambda a, b: f"Your hands stayed very still from {clock(a)} to {clock(b)}.",
+        "Try using your hands now and then to mark a key point.",
     )
 
     events += _events(
@@ -352,8 +377,8 @@ def hand_events(
         "hands",
         "excessive_gesture",
         "low",
-        lambda a, b: f"A lot of hand movement between {clock(a)} and {clock(b)}.",
-        "Let some points land without a gesture. The busier ones then carry more weight.",
+        lambda a, b: f"Your hands were very busy from {clock(a)} to {clock(b)}.",
+        "Try letting some points land without a gesture, so the ones you do use stand out.",
     )
 
     # There is deliberately no fidgeting rule. The measurement proved too unstable to
@@ -368,7 +393,7 @@ def hand_events(
         "hand_to_face",
         "low",
         lambda a, b: f"Your hand came up to your face around {clock(a)}.",
-        "A common habit. Resting your hands below shoulder level keeps the frame clean.",
+        "A very common habit. Try resting your hands low between gestures.",
     )
 
     return events
@@ -385,7 +410,28 @@ def all_events(face_windows: Sequence, pose_windows: Sequence, hand_windows: Seq
 #: How much each severity counts when deciding which channel needs attention most.
 SEVERITY_WEIGHT = {"info": 0.0, "low": 1.0, "medium": 2.0}
 
-CHANNEL_LABEL = {"face": "face and eye contact", "pose": "posture", "hands": "hand movement"}
+#: What each part of the analysis is called in a sentence. The face is "face and head"
+#: because that is what its three measurements look at: where the head points, how much it
+#: moves, and how much the expression changes. It used to be "face and eye contact", but eye
+#: contact is the one thing it cannot see; the face analyser says so in as many words.
+CHANNEL_LABEL = {"face": "face and head", "pose": "posture", "hands": "hands"}
+
+#: The heading for a piece of advice, taken from the finding it is about.
+#:
+#: A heading that says what to do reads better than one naming a part of the body to "work
+#: on", and the card already carries a badge saying which part it is. Only the findings that
+#: can lead a piece of advice are here: the ones marked as information carry no weight in the
+#: ranking, so they never do.
+ADVICE_TITLE = {
+    "looking_away": "Keep your face toward the camera",
+    "flat_expression": "Let your face react more",
+    "head_movement": "Keep your head a little steadier",
+    "slouching": "Sit tall and straight",
+    "leaning_to_side": "Keep your shoulders level",
+    "restlessness": "Stay steady from side to side",
+    "excessive_gesture": "Give your hands a rest now and then",
+    "hand_to_face": "Keep your hands away from your face",
+}
 
 
 @dataclass
@@ -485,7 +531,9 @@ def recommendations(
                 rank=len(out) + 1,
                 channel=channel,
                 kind="improve",
-                title=f"Work on your {CHANNEL_LABEL.get(channel, channel)}",
+                title=ADVICE_TITLE.get(
+                    worst.type, f"Something to try with your {CHANNEL_LABEL.get(channel, channel)}"
+                ),
                 body=f"{worst.message} {worst.suggestion}",
                 observation=worst.message,
                 advice=worst.suggestion,
@@ -515,17 +563,36 @@ def recommendations(
     }
     if scored and len(out) < limit:
         best = max(scored.items(), key=lambda kv: (kv[1], kv[0]))[0]
+        label = CHANNEL_LABEL.get(best, best)
+
+        # Only called the best when it is. Because the part with advice against it is passed
+        # over just above, this is often the best of what is left rather than the best
+        # overall, and the summary at the top of the screen names the real best. The two
+        # used to contradict each other on screen: "Your posture came out best" in the
+        # summary, and "Your hands came out best" on this card. Before the wording was
+        # rewritten the card said "This was your strongest channel" in every case, so it was
+        # just as wrong, only less obviously. The ranking matches the summary's exactly,
+        # thin parts excluded, so the two can never disagree about which part that is.
+        ranked = {
+            c: s for c, s in channel_scores.items() if s is not None and c not in thin_channels
+        }
+        overall_best = max(ranked.items(), key=lambda kv: (kv[1], kv[0]))[0]
+        observation = (
+            f"Your {label} came out best this time."
+            if best == overall_best
+            else f"Your {label} scored {scored[best]:.0f} out of 100."
+        )
         out.append(
             Recommendation(
                 rank=len(out) + 1,
                 channel=best,
                 kind="maintain",
-                title=f"Keep doing what you did with your {CHANNEL_LABEL.get(best, best)}",
-                body="This was your strongest channel in this session. Whatever you were doing there, keep it.",
-                # Which channel scored best is a fact about the session, so it is the
-                # observation half and stays as written. Only the encouragement is advice.
-                observation="This was your strongest channel in this session.",
-                advice="Whatever you were doing there, keep it.",
+                title="Keep this up",
+                body=f"{observation} Whatever you did there, keep doing it.",
+                # How the part scored is a fact about the session, so it is the observation
+                # half and stays as written. Only the encouragement is advice.
+                observation=observation,
+                advice="Whatever you did there, keep doing it.",
                 detail=_strength_for(best, metric_reports),
             )
         )
@@ -558,7 +625,6 @@ def _strength_for(channel: str, reports: dict[str, Sequence] | None) -> str | No
     if not scored:
         return None
     best = max(scored, key=lambda r: (r.mean_score, r.metric))
-    return (
-        f"Your steadiest measurement here was {best.label}, "
-        f"averaging {best.mean_score:.0f} out of 100."
-    )
+    # "Best result" rather than the earlier "steadiest measurement", which read as though it
+    # were about keeping still whichever measurement it named.
+    return f"Your best result here was {best.label}, at {best.mean_score:.0f} out of 100."

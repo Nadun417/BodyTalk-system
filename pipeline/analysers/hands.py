@@ -127,10 +127,25 @@ class HandsAnalyser(Analyser):
     #: dropping it from the list matters, because the code that explains a low score works
     #: from this list, and a measurement that had no part in a score must never be offered
     #: as the reason for it.
+    #:
+    #: Gesturing scores low for too little movement and for too much, so its low reading does
+    #: not say which: "how much you gestured" is true either way, and the findings list says
+    #: which of the two it was, with the times.
     METRICS = (
-        MetricSpec("gesture", "hand gestures"),
-        MetricSpec("touch", "hands away from your face"),
-        MetricSpec("fidget", "fidgeting", scored=False),
+        MetricSpec(
+            "gesture",
+            "gesturing",
+            low_reading="how much you gestured",
+        ),
+        MetricSpec(
+            "touch",
+            "keeping your hands away from your face",
+            low_reading="your hands coming up to your face",
+        ),
+        # Named for what a high number means, like the others. Called "fidgeting" it read
+        # the wrong way round: a high number looked like a lot of fidgeting when it means
+        # very little.
+        MetricSpec("fidget", "keeping your hands settled", scored=False),
     )
 
     def __init__(

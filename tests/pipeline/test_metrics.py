@@ -192,7 +192,7 @@ def test_thin_coverage_is_admitted_in_the_sentence():
     windows = [face(100, 0, 100)] * 2 + [face(100, None, 100)] * 8
     reports = metric_reports({"face": windows})["face"]
     sentence = explain_channel(channel_mean(windows), reports)
-    assert "hint rather than a finding" in sentence
+    assert "rough guide" in sentence
 
 
 # ------------------------------------------------------------------- the sentence
@@ -202,11 +202,23 @@ def test_the_sentence_names_the_measurement_and_what_went_well():
     windows = [face(facing=100, liveliness=2, stability=97)] * 10
     sentence = explain_channel(channel_mean(windows), metric_reports({"face": windows})["face"])
 
-    assert "expression variation" in sentence
+    said = sentence.lower()
+    assert "varying your expression" in said
     # The comparison is the point: without it the sentence reads as though the whole
     # channel was weak, which is the misreading this exists to correct.
-    assert "head steadiness" in sentence and "facing the camera" in sentence
+    assert "keeping your head steady" in said and "facing the camera" in said
     assert sentence.endswith(".")
+
+
+def test_every_number_in_the_sentence_says_which_way_round_it_goes():
+    """The earlier sentence ended "For comparison, staying upright 75 and sitting still 95",
+    leaving the reader to work out that the higher number was the good one. Every number now
+    comes with "out of 100" or "scored"."""
+    windows = [face(facing=100, liveliness=2, stability=97)] * 10
+    sentence = explain_channel(channel_mean(windows), metric_reports({"face": windows})["face"])
+    assert "out of 100" in sentence
+    assert "For comparison" not in sentence
+    assert sentence.count("scored") == 2  # one for each of the other two measurements
 
 
 def test_no_sentence_for_a_channel_that_was_never_scored():

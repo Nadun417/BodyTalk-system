@@ -24,8 +24,8 @@ import statistics as stats
 from dataclasses import dataclass, field
 from typing import Sequence
 
-from .metrics import explain_channel
-from .rules import Event, clock
+from .metrics import driving_metric
+from .rules import CHANNEL_LABEL, Event, clock
 
 #: The share of the recording a channel score has to rest on before it is treated as a
 #: finding about the whole session.
@@ -40,9 +40,9 @@ from .rules import Event, clock
 #: warning beside it still reads as a number, so the number is left out rather than qualified.
 #:
 #: Half is the line the channel breakdown already uses for a single measurement, where a
-#: measurement available in less than half of its channel's seconds is described as "a hint
-#: rather than a finding". Using the same line means the two warnings agree about what too
-#: little of the session is, instead of each having its own figure.
+#: measurement available in less than half of its channel's seconds is described as "a rough
+#: guide". Using the same line means the two warnings agree about what too little of the
+#: session is, instead of each having its own figure.
 THIN_CHANNEL_SHARE = 0.5
 
 
@@ -146,9 +146,6 @@ def summarise(
     )
 
 
-CHANNEL_LABEL = {"face": "face and eye contact", "pose": "posture", "hands": "hand movement"}
-
-
 def summary_sentence(
     overall: float | None,
     channel_scores: dict[str, float | None],
@@ -165,60 +162,73 @@ def summary_sentence(
 
     It names one strength and one thing to work on. Only faults would be discouraging and
     people stop reading; only praise would be useless.
+
+    It carries no numbers. The scores are on the cards directly above it and the breakdown
+    below it, so repeating them here only made the one paragraph everybody reads the hardest
+    one to read. The earlier version ran to four numbers in two sentences, of the form "What
+    held this back most was level shoulders, which averaged 60 out of 100. For comparison,
+    staying upright 75 and sitting still 95."
     """
     if overall is None:
         return (
-            "There was not enough clearly visible footage in this recording to score it. "
-            "Check that your face and upper body stay in frame, and try again."
+            "We couldn't see enough of you in this recording to give it a score. "
+            "Check your face and upper body are inside the frame, then try again."
         )
 
     parts: list[str] = []
 
     if facts.strongest_channel:
-        parts.append(
-            f"Your strongest channel this session was {CHANNEL_LABEL.get(facts.strongest_channel, facts.strongest_channel)}."
-        )
+        label = CHANNEL_LABEL.get(facts.strongest_channel, facts.strongest_channel)
+        parts.append(f"Your {label} came out best this time.")
 
     sustained = [e for e in events if e.severity in ("low", "medium")]
     if sustained:
         longest = max(sustained, key=lambda e: (e.severity == "medium", e.duration_s))
-        parts.append(f"The clearest thing to work on: {longest.message[0].lower()}{longest.message[1:]}")
+        parts.append(f"The main thing to work on: {longest.message[0].lower()}{longest.message[1:]}")
     else:
-        parts.append("Nothing stood out for long enough to be worth flagging, which is a good sign.")
+        parts.append("Nothing came up for long enough to flag, which is a good sign.")
 
-    # Naming the measurement behind the weakest channel, when one stands out. A channel
-    # score is an average of two or three separate measurements, so a middling score
-    # usually means one of them was poor rather than that the whole channel was, and
-    # somebody reading only the score has no way of telling those apart.
-    if metric_reports and facts.weakest_channel:
-        explanation = explain_channel(
-            channel_scores.get(facts.weakest_channel),
-            metric_reports.get(facts.weakest_channel) or [],
+    # Naming what held the weakest part back, when one measurement stands out. A score is an
+    # average of two or three separate measurements, so a middling one usually means one of
+    # them was poor rather than all of them, and somebody reading only the score has no way
+    # of telling those apart.
+    #
+    # Left out when the weakest is also the strongest, which happens when only one part
+    # could be ranked at all: calling the same thing best and worst in one paragraph says
+    # nothing. And the reason is only named when it rests on at least half of the seconds
+    # scored, for the same reason a thin score is not shown at all.
+    weakest = facts.weakest_channel
+    if metric_reports and weakest and weakest != facts.strongest_channel:
+        label = CHANNEL_LABEL.get(weakest, weakest)
+        driver = (
+            driving_metric(metric_reports.get(weakest) or [])
+            if channel_scores.get(weakest) is not None
+            else None
         )
-        if explanation:
-            label = CHANNEL_LABEL.get(facts.weakest_channel, facts.weakest_channel)
-            parts.append(f"Your {label} score came out lowest. {explanation}")
+        if driver and driver.low_reading and driver.coverage >= 0.5:
+            parts.append(
+                f"Your {label} scored lowest, and the biggest reason was {driver.low_reading}."
+            )
 
     positive = [e for e in events if e.type == "smile"]
     if positive:
-        parts.append(f"There was also a natural smile around {clock(positive[0].t_start_s)}.")
+        parts.append(f"You also smiled naturally around {clock(positive[0].t_start_s)}.")
 
-    # Said in words because the score itself is not shown for such a channel, and a score
+    # Said in words because the score itself is not shown for such a part, and a score
     # missing without explanation looks like a fault in the app. It says how little was
-    # measured and nothing about why: the channel may have been out of shot, hidden or simply
-    # not picked up, and the data cannot tell those apart.
+    # measured and nothing about why: it may have been out of shot, hidden or simply not
+    # picked up, and the data cannot tell those apart.
     for channel in facts.thin_channels:
         label = CHANNEL_LABEL.get(channel, channel)
         parts.append(
-            f"{label[0].upper()}{label[1:]} could be measured in only "
-            f"{facts.channel_windows.get(channel, 0)} of the {facts.windows_total} seconds, "
-            "which is too little to give it a score."
+            f"We could only measure your {label} for {facts.channel_windows.get(channel, 0)} "
+            f"of the {facts.windows_total} seconds, which is too little to score."
         )
 
     if facts.windows_skipped > facts.windows_total * 0.25:
         parts.append(
-            f"Note that {facts.windows_skipped} of {facts.windows_total} seconds could not be scored, "
-            "so this is based on less evidence than usual."
+            f"We couldn't measure {facts.windows_skipped} of the {facts.windows_total} seconds, "
+            "so this is based on less of the recording than usual."
         )
 
     return " ".join(parts)

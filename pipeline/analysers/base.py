@@ -50,11 +50,18 @@ class MetricSpec(NamedTuple):
     evidence worth keeping, but it was found too unreliable to judge anybody on. Anything
     marked False here is reported as an observation and must never be named as a reason a
     score came out the way it did, because it had no part in it.
+
+    `low_reading` is what a low reading of the measurement means, said as something that
+    happened: "your shoulders not sitting level" rather than "level shoulders". The label names
+    the measurement, which suits a list of numbers; this names the behaviour, which is what a
+    person needs when they are told why a score came out low. It has to stay inside what the
+    measurement can actually see, the same as every other sentence the user reads.
     """
 
     attribute: str
     label: str
     scored: bool = True
+    low_reading: str = ""
 
 
 def metric_values(window, specs: Sequence[MetricSpec]) -> dict[str, float | None]:

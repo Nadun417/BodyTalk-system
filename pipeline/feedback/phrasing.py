@@ -76,24 +76,38 @@ BRITISH = {
     "practicing": "practising",
 }
 
+#: What the model is asked to do.
+#:
+#: It used to be asked to make each sentence "warmer and more personal", which made sense
+#: when the sentences it was given were stiff. Once they were rewritten to be warm and plain
+#: to begin with, the same request made them worse: "Try keeping your head a little steadier"
+#: came back as "Give your head a little steadier try". So it is now asked to polish lightly,
+#: and to hand the sentence back untouched when there is nothing to improve, which for a
+#: well-written sentence is the right answer.
 SYSTEM_PROMPT = (
-    "You rewrite one sentence of interview coaching advice so it sounds warmer and more "
-    "personal. You never add information. You never mention feelings, confidence, nerves, "
-    "personality, or how someone would do in an interview. You reply with the rewritten "
-    "sentence only, at most 20 words, and nothing else."
+    "You lightly polish one sentence of interview coaching advice so it reads naturally out "
+    "loud. It is already friendly and plain. Keep its meaning and most of its words, and keep "
+    "it grammatical. If it already reads well, reply with it exactly as it is. You never add "
+    "information. You never mention feelings, confidence, nerves, personality, or how someone "
+    "would do in an interview. You reply with the sentence only, and nothing else."
 )
 
 #: Shown to the model as worked examples. A small model copies a demonstrated pattern far
-#: more reliably than it follows a described one, and these two carry the whole house style:
-#: second person, gentle, an action rather than a verdict.
+#: more reliably than it follows a described one. The first is handed back untouched on
+#: purpose, because that is the answer most sentences now deserve, and a model that has never
+#: been shown it will always change something.
 EXAMPLES = [
     (
-        "Sit back a little and keep your shoulders level.",
-        "Try settling back into the chair and letting your shoulders level out.",
+        "Try letting both shoulders drop and rest at the same height.",
+        "Try letting both shoulders drop and rest at the same height.",
     ),
     (
-        "Keep your hands visible so natural gestures come through.",
-        "Try keeping your hands in shot so your natural gestures come across.",
+        "Try using your hands now and then to mark a key point.",
+        "Now and then, try using your hands to mark a key point.",
+    ),
+    (
+        "Check your hands are inside the frame so your gestures show up.",
+        "Check your hands are inside the frame, so your gestures show up.",
     ),
 ]
 

@@ -21,9 +21,9 @@ interface ProcessingState {
  */
 const STAGES = [
   { key: 'extracting', title: 'Reading the video' },
-  { key: 'detecting', title: 'Detecting landmarks' },
-  { key: 'analysing', title: 'Measuring each channel' },
-  { key: 'fusing', title: 'Combining the channels' },
+  { key: 'detecting', title: 'Finding your face, body and hands' },
+  { key: 'analysing', title: 'Measuring face, posture and hands' },
+  { key: 'fusing', title: 'Putting the scores together' },
   { key: 'feedback', title: 'Writing your feedback' }
 ]
 

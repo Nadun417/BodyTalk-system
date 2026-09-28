@@ -140,7 +140,7 @@ export default function Report(): JSX.Element {
               session
                 ? `The session of ${shortDate(session.createdAt)}, ${clock(session.videoDurationS)} long`
                 : 'The session details',
-              'The overall score and each channel’s score',
+              'The overall score, and the scores for face, posture and hands',
               'Both charts, as they appear on the results screen',
               detail
                 ? `${detail.events.length} timestamped observations`

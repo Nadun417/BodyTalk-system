@@ -111,10 +111,26 @@ class FaceAnalyser(Analyser):
     #: eye contact anywhere in this list: what is actually measured is how square-on the
     #: head is, and someone can hold their head straight while looking somewhere else
     #: entirely. Claiming to measure gaze would be claiming more than the landmarks support.
+    #:
+    #: The labels are written so that a higher number is plainly better, because they sit next
+    #: to a number on the screen and a reader should not have to work out which way round it
+    #: goes. "Expression variation 20" left that open; "varying your expression 20" does not.
     METRICS = (
-        MetricSpec("facing", "facing the camera"),
-        MetricSpec("liveliness", "expression variation"),
-        MetricSpec("stability", "head steadiness"),
+        MetricSpec(
+            "facing",
+            "facing the camera",
+            low_reading="your head turning away from the camera",
+        ),
+        MetricSpec(
+            "liveliness",
+            "varying your expression",
+            low_reading="your expression not changing much",
+        ),
+        MetricSpec(
+            "stability",
+            "keeping your head steady",
+            low_reading="your head moving around",
+        ),
     )
 
     def __init__(

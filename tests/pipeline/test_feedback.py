@@ -168,8 +168,28 @@ def test_the_upright_message_does_not_claim_the_shoulders_moved():
     but it cannot say which, and it must not settle on the shoulders."""
     found = [e for e in pose_events(seconds(6, PoseW, uprightness=10.0)) if e.type == "slouching"]
     message = found[0].message
-    assert "your head or your upper body" in message.lower()
+    assert "your head or upper body" in message.lower()
     assert "shoulder" not in message.lower()
+
+
+def test_uneven_shoulders_are_described_as_uneven_shoulders():
+    """The measurement is one shoulder sitting higher than the other. The message used to say
+    "you leaned to one side", which claimed more than that and was hard to tell apart from the
+    tilt message above."""
+    found = [e for e in pose_events(seconds(14, PoseW, levelness=10.0)) if e.type == "leaning_to_side"]
+    message = found[0].message.lower()
+    assert "one shoulder sat higher than the other" in message
+    assert "leaned" not in message
+
+
+def test_turning_away_is_described_as_a_turn_of_the_head_not_a_look():
+    """The measurement is the angle of the head. Somebody can look away without turning, or
+    turn without taking their eyes off the lens, so "looked away" claimed a gaze the
+    landmarks cannot see."""
+    found = [e for e in face_events(seconds(6, FaceW, facing=10.0)) if e.type == "looking_away"]
+    message = found[0].message.lower()
+    assert "turned your head away" in message
+    assert "looked" not in message and "eye" not in message
 
 
 def test_leaning_to_one_side_needs_ten_seconds():
@@ -202,7 +222,7 @@ def test_unseen_hands_are_not_described_as_being_outside_the_frame():
     found = [e for e in hand_events(windows) if e.type == "hands_out_of_frame"]
     assert len(found) == 1
     said = f"{found[0].message} {found[0].suggestion}".lower()
-    assert "could not be seen" in found[0].message.lower()
+    assert "couldn't be seen" in found[0].message.lower()
     # The message must not claim to know where the hands were. The suggestion may still
     # invite the person to check their framing, because checking is not the same as being
     # told that framing is the problem.
@@ -311,7 +331,7 @@ def test_unscored_windows_are_left_out_rather_than_counted_as_zero():
 def test_a_session_with_nothing_visible_says_so_rather_than_scoring_zero():
     summary = summarise([None, None], {"face": []}, [], 2.0)
     assert summary.overall_score is None
-    assert "not enough" in summary.summary_text.lower()
+    assert "couldn't see enough" in summary.summary_text.lower()
 
 
 def test_the_summary_names_a_strength_and_something_to_work_on():
@@ -324,13 +344,13 @@ def test_the_summary_names_a_strength_and_something_to_work_on():
     )
     assert summary.facts.strongest_channel == "face"
     assert summary.facts.weakest_channel == "pose"
-    assert "strongest" in summary.summary_text
+    assert "Your face and head came out best this time." in summary.summary_text
     assert "work on" in summary.summary_text
 
 
 def test_a_thinly_evidenced_session_is_flagged_as_such():
     summary = summarise([80.0] + [None] * 9, {"face": []}, [], 10.0)
-    assert "less evidence" in summary.summary_text
+    assert "less of the recording than usual" in summary.summary_text
 
 
 def test_a_channel_is_never_both_the_thing_to_fix_and_the_thing_to_keep():
@@ -379,10 +399,10 @@ def test_a_channel_seen_for_one_second_is_flagged_and_not_ranked():
     # Never named the lowest, even though it is, and the summary says why it has no score.
     assert summary.facts.weakest_channel == "pose"
     assert (
-        "Hand movement could be measured in only 1 of the 73 seconds, "
-        "which is too little to give it a score." in summary.summary_text
+        "We could only measure your hands for 1 of the 73 seconds, "
+        "which is too little to score." in summary.summary_text
     )
-    assert "hand movement score came out lowest" not in summary.summary_text
+    assert "hands scored lowest" not in summary.summary_text
     assert "40" not in summary.summary_text
 
 
@@ -414,7 +434,7 @@ def test_a_channel_seen_for_half_the_recording_is_treated_like_any_other():
     )
     assert summary.facts.thin_channels == []
     assert summary.facts.weakest_channel == "hands"
-    assert "too little to give it a score" not in summary.summary_text
+    assert "too little to score" not in summary.summary_text
 
 
 def test_advice_about_a_barely_seen_channel_does_not_quote_its_averages():
@@ -438,4 +458,118 @@ def test_advice_about_a_barely_seen_channel_does_not_quote_its_averages():
     # Without the channel named as thin, the same call does quote them, so the check above
     # is testing the guard and not an absence of anything to quote.
     unguarded = recommendations(events, scores, metric_reports=reports)
-    assert "averaged 40" in (unguarded[0].detail or "")
+    assert "40 out of 100" in (unguarded[0].detail or "")
+
+
+# ------------------------------------------------------------------ how it is all worded
+
+
+def _every_kind_of_finding():
+    """At least one of every finding the rules can produce, from windows built to set each off."""
+    face = seconds(6, FaceW, facing=10.0)  # turned away
+    face += [FaceW(t_start_s=6.0 + t, t_end_s=7.0 + t, liveliness=10.0) for t in range(25)]
+    face += [FaceW(t_start_s=31.0 + t, t_end_s=32.0 + t, stability=10.0) for t in range(6)]
+    face += [FaceW(t_start_s=37.0 + t, t_end_s=38.0 + t, mouth_width=0.9) for t in range(3)]
+    pose = seconds(6, PoseW, uprightness=10.0)
+    pose += [PoseW(t_start_s=6.0 + t, t_end_s=7.0 + t, levelness=10.0) for t in range(14)]
+    pose += [PoseW(t_start_s=20.0 + t, t_end_s=21.0 + t, sway=10.0) for t in range(10)]
+    hands = seconds(15, HandW, visibility=0.0, gesture_raw=None, fidget=None, touch_raw=None, score=None)
+    hands += [HandW(t_start_s=15.0 + t, t_end_s=16.0 + t, gesture_raw=0.01) for t in range(35)]
+    hands += [HandW(t_start_s=50.0 + t, t_end_s=51.0 + t, gesture_raw=5.0) for t in range(12)]
+    hands += [HandW(t_start_s=62.0 + t, t_end_s=63.0 + t, touch_raw=1.0) for t in range(3)]
+    return face, pose, hands
+
+
+def _all_the_words():
+    face, pose, hands = _every_kind_of_finding()
+    events = all_events(face, pose, hands)
+    advice = recommendations(events, {"face": 60.0, "pose": 55.0, "hands": 90.0})
+    summary = summarise(
+        [70.0] * 60,
+        {"face": seconds(60, FaceW, score=60.0), "pose": seconds(60, PoseW, score=55.0)},
+        events,
+        60.0,
+    )
+    return events, advice, summary
+
+
+def test_every_kind_of_finding_is_produced_by_the_fixture():
+    """Otherwise the wording checks below would pass by never seeing half the sentences."""
+    events, _, _ = _all_the_words()
+    assert {e.type for e in events} == {
+        "looking_away",
+        "flat_expression",
+        "head_movement",
+        "smile",
+        "slouching",
+        "leaning_to_side",
+        "restlessness",
+        "hands_out_of_frame",
+        "low_gesture",
+        "excessive_gesture",
+        "hand_to_face",
+    }
+
+
+def test_nothing_the_user_reads_uses_the_apps_own_vocabulary():
+    """"Channel" and "metric" are words for the people who built this. The first version of
+    the feedback used "channel" in the summary and the advice, and was found hard to read by
+    the person it was written for."""
+    events, advice, summary = _all_the_words()
+    said = [e.message for e in events] + [e.suggestion for e in events]
+    said += [r.title for r in advice] + [r.body for r in advice] + [summary.summary_text]
+    for sentence in said:
+        for word in ("channel", "metric", "came out lowest", "shortfall"):
+            assert word not in sentence.lower(), f"{word!r} in: {sentence}"
+
+
+def test_nothing_the_user_reads_says_anything_about_the_person():
+    """The rewording step refuses these words from the model. The templates are held to the
+    same list, and to three more that earlier tips used to justify themselves: "composed",
+    "calm" and "engagement" are claims about somebody's manner, not about what was seen."""
+    from feedback.phrasing import FORBIDDEN
+
+    events, advice, summary = _all_the_words()
+    said = [e.message for e in events] + [e.suggestion for e in events]
+    said += [r.title for r in advice] + [r.body for r in advice] + [summary.summary_text]
+    for sentence in said:
+        assert not FORBIDDEN.search(sentence), f"forbidden wording in: {sentence}"
+        for word in ("composed", "calm", "engagement"):
+            assert word not in sentence.lower(), f"{word!r} in: {sentence}"
+
+
+def test_every_tip_is_something_to_do():
+    """A tip is one thing to try. Each either starts with a verb or opens with a short remark
+    and then gives one, as the hand-at-the-face tip does."""
+    events, _, _ = _all_the_words()
+    for e in events:
+        assert e.suggestion.endswith("."), e.suggestion
+        assert len(e.suggestion.split()) <= 25, f"too long for a tip: {e.suggestion}"
+
+
+def test_every_advice_heading_says_what_to_do():
+    """Headings used to be "Work on your face and eye contact", which names a part of the
+    body rather than an action, and claimed eye contact, which is not measured."""
+    _, advice, _ = _all_the_words()
+    for r in advice:
+        assert not r.title.lower().startswith("work on"), r.title
+        assert "eye contact" not in r.title.lower(), r.title
+
+
+def test_the_keep_it_up_card_only_says_best_when_it_is():
+    """Caught in the built app. The best-scoring part had advice against it, so the closing
+    card went to the next best, and said it "came out best" directly below a summary naming a
+    different part as the best. It now gives that part's score instead, which is true."""
+    events = [Event(0.0, 40.0, "pose", "slouching", "medium", "Tilted.", "Sit tall.")]
+    scores = {"face": 60.0, "pose": 90.0, "hands": 80.0}
+    advice = recommendations(events, scores)
+    keep = [r for r in advice if r.kind == "maintain"]
+    assert [r.channel for r in keep] == ["hands"]
+    assert "best" not in keep[0].body
+    assert keep[0].body.startswith("Your hands scored 80 out of 100.")
+
+    # And when it genuinely is the best, it says so.
+    advice = recommendations([], scores)
+    keep = [r for r in advice if r.kind == "maintain"]
+    assert keep[0].channel == "pose"
+    assert keep[0].body.startswith("Your posture came out best this time.")
