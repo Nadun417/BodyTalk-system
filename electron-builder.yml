@@ -14,6 +14,12 @@ files:
 # The virtual environment is left out on purpose: it contains paths specific to this
 # machine and would not work anywhere else. Bundling a Python that runs on a user's
 # computer without them installing anything is a job for later.
+#
+# The language model is left out too. It is over a gigabyte, it is fetched by the setup
+# script on each machine that wants the reworded feedback, and the app runs perfectly well
+# without it, keeping its own wording. This list is not the same as the list of files Git
+# ignores, so a model downloaded into the folder on the machine that builds the installer
+# would otherwise go into it and multiply its size by more than ten.
 extraResources:
   - from: pipeline
     to: pipeline
@@ -21,6 +27,7 @@ extraResources:
       - '**/*'
       - '!.venv/**'
       - '!**/__pycache__/**'
+      - '!models/**'
 
 # No auto-update and nowhere to publish to. An app that checks for updates is an app that
 # talks to the internet, which is exactly what this one is not supposed to do.
