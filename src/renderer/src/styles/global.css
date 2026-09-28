@@ -162,29 +162,101 @@ body {
   flex: 1;
 }
 
-.icon-button {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text-2);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  font-size: 15px;
-  line-height: 1;
+/* Every icon is drawn at the same size and takes the colour of the text around it. */
+.icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
 }
 
-.icon-button:hover {
+/* The settings button: a label with its icon, quiet until hovered, and marked while its screen
+   is open. It is a link, since it goes to a screen, hence the underline being taken off. */
+.topbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 550;
+  text-decoration: none;
+  transition:
+    background-color 150ms ease-out,
+    border-color 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.topbar-button:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.topbar-button.active {
   background: var(--brand-soft);
   border-color: var(--brand-soft);
+  color: var(--brand);
 }
 
-/* The settings button is a link rather than a button, since it goes to a screen, so it needs
-   the underline taking off to sit beside the one next to it. */
-a.icon-button {
-  text-decoration: none;
+/* Light, dark and match Windows: three small buttons in one tray. The one in use is lifted out
+   of the tray onto the page colour, so the switch reads as a position, not as three actions. */
+.theme-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.theme-switch button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.theme-switch button:hover {
+  color: var(--text);
+}
+
+/* In the accent colour, like the settings button while its screen is open: across the top bar,
+   blue means "this is the one in use". */
+.theme-switch button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--brand);
+  box-shadow: var(--shadow);
+}
+
+.theme-switch .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.topbar-button:focus-visible,
+.theme-switch button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar-button,
+  .theme-switch button {
+    transition: none;
+  }
 }
 
 /* ---------------------------------------------------------------- settings fields
