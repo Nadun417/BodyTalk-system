@@ -20,7 +20,7 @@ import {
 import { getSettings, setSettings } from '../db/settingsRepo'
 import { sourceVideoPath } from '../fs/storage'
 import { videoUrl } from '../fs/videoProtocol'
-import { writeReportPdf } from '../services/reportService'
+import { saveReportPdf } from '../services/reportService'
 
 /** Registers every IPC handler. The renderer reaches the backend through these only. */
 export function registerIpcHandlers(): void {
@@ -191,13 +191,10 @@ export function registerIpcHandlers(): void {
         : await dialog.showSaveDialog(options)
       if (res.canceled || !res.filePath) return { cancelled: true }
 
-      try {
-        await writeReportPdf(bytes, res.filePath)
-      } catch (err) {
-        return { error: `The report could not be saved: ${(err as Error).message}` }
-      }
-      setSettings({ reportSavePath: dirname(res.filePath) })
-      return { savedTo: res.filePath }
+      const outcome = await saveReportPdf(bytes, res.filePath)
+      // Only a folder that actually took the report is remembered for next time.
+      if ('savedTo' in outcome) setSettings({ reportSavePath: dirname(res.filePath) })
+      return outcome
     }
   )
 
