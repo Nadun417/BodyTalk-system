@@ -140,9 +140,13 @@ export function validateVideoFile(
  */
 export function explainPythonFailure(raw: string): string {
   const missingModule = /No module named ['"]?([\w.]+)/.exec(raw)
-  const couldNotStart = /Failed to start Python|ENOENT|is not recognized/i.test(raw)
+  const couldNotStart =
+    /Failed to start Python|Could not start the video check|ENOENT|is not recognized/i.test(raw)
+  // The upload check says this in its own words when it cannot load the video library, and it
+  // means the same thing as a missing module: nothing on this machine can analyse a video yet.
+  const libraryMissing = /video library is not installed/i.test(raw)
 
-  if (missingModule || couldNotStart) {
+  if (missingModule || couldNotStart || libraryMissing) {
     return (
       'This copy of BodyTalk cannot analyse videos yet, because the analysis software it ' +
       'needs is not set up on this computer. Running setup.ps1, in the pipeline folder where ' +

@@ -21,10 +21,13 @@ vi.mock('../src/main/fs/storage', () => ({
   removeSessionDir: vi.fn(),
   resultsPath: vi.fn(() => 'results.json')
 }))
-vi.mock('../src/main/pipeline/pythonBridge', () => ({
+vi.mock('../src/main/pipeline/pythonBridge', async (importOriginal) => ({
   runPipeline: vi.fn(),
   cancelPipeline: vi.fn(),
-  validateVideoFile: vi.fn()
+  validateVideoFile: vi.fn(),
+  // The real one: whether a failure means "not set up" is part of what is under test.
+  explainPythonFailure: (await importOriginal<typeof import('../src/main/pipeline/pythonBridge')>())
+    .explainPythonFailure
 }))
 
 import { validateVideo, couldNotCheck } from '../src/main/services/sessionService'
@@ -73,20 +76,51 @@ describe('couldNotCheck', () => {
    * against it. Refusing here would mean a broken Python setup appears to the user as every
    * one of their recordings being rejected, with no hint of where the real fault lies.
    */
+  const stalled = 'The video check took too long and was stopped.'
+
   it('lets the video through rather than refusing it', () => {
-    expect(couldNotCheck('ENOENT').ok).toBe(true)
+    expect(couldNotCheck(stalled).ok).toBe(true)
   })
 
   it('marks itself as a check that did not happen, not as a passing video', () => {
-    expect(couldNotCheck('ENOENT').code).toBe('check_failed')
+    expect(couldNotCheck(stalled).code).toBe('check_failed')
   })
 
   it('says so plainly instead of staying silent', () => {
-    const warnings = couldNotCheck('ENOENT').warnings?.join(' ') ?? ''
+    const warnings = couldNotCheck(stalled).warnings?.join(' ') ?? ''
     expect(warnings).toContain('could not be checked')
   })
 
   it('includes what actually went wrong, so a broken setup can be diagnosed', () => {
-    expect(couldNotCheck('ENOENT').warnings?.join(' ')).toContain('ENOENT')
+    expect(couldNotCheck(stalled).warnings?.join(' ')).toContain('took too long')
+  })
+})
+
+/**
+ * The exception to the rule above, found in testing on a freshly installed copy: with the
+ * analysis software not yet set up, the screen said "Ready to analyse" and the real reason
+ * only appeared after the analysis had been started and had failed.
+ */
+describe('couldNotCheck when the analysis software is missing', () => {
+  const fromTheCheck =
+    'Videos cannot be checked on this machine because the video library is not installed.'
+
+  it('does not offer the analysis, because it cannot run either', () => {
+    expect(couldNotCheck(fromTheCheck).ok).toBe(false)
+  })
+
+  it('marks it as a computer that is not set up, not as a bad video', () => {
+    expect(couldNotCheck(fromTheCheck).code).toBe('not_set_up')
+  })
+
+  it('names the step that fixes it, in the words the failed analysis would use', () => {
+    expect(couldNotCheck(fromTheCheck).reason).toContain('setup.ps1')
+  })
+
+  it('treats Python missing altogether the same way', () => {
+    expect(couldNotCheck('Could not start the video check: spawn python ENOENT').code).toBe(
+      'not_set_up'
+    )
+    expect(couldNotCheck("No module named 'cv2'").code).toBe('not_set_up')
   })
 })

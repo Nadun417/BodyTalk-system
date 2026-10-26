@@ -298,7 +298,9 @@ export interface VideoValidation {
    * A short tag naming which check failed, so the interface never has to match on wording.
    * One of: ok, not_found, unreadable, too_short, no_person. It is also set to
    * check_failed when the check itself could not be run, which is not the same as the video
-   * being bad and is deliberately not treated as a refusal.
+   * being bad and is deliberately not treated as a refusal. The exception is not_set_up: the
+   * check could not run because the analysis software is missing from this computer, so no
+   * analysis can run either, and that one does stop the analysis being offered.
    */
   code?: string
   /** The sentence shown to the user. Empty when the video was accepted. */

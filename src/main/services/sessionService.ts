@@ -13,7 +13,12 @@ import {
   copyVideoIntoSession,
   sourceVideoPath
 } from '../fs/storage'
-import { runPipeline, cancelPipeline, validateVideoFile } from '../pipeline/pythonBridge'
+import {
+  runPipeline,
+  cancelPipeline,
+  validateVideoFile,
+  explainPythonFailure
+} from '../pipeline/pythonBridge'
 import type {
   FusionMode,
   PhrasingMode,
@@ -59,8 +64,22 @@ export async function validateVideo(
  * rejected, with nothing on screen to suggest where the real fault lies.
  *
  * So the video goes through, and the user is told plainly that it was not checked.
+ *
+ * There is one exception, and it is the case where the reason for letting the video through
+ * falls away. When the check failed because the analysis software itself is missing from this
+ * computer, the analysis would fail for exactly the same reason a moment later. Showing "Ready
+ * to analyse" then is simply untrue, and it was found to happen in testing on a fresh install:
+ * the screen said ready, and the explanation only appeared after Start had been pressed and
+ * the analysis had failed. So in that case the screen gives the explanation straight away, in
+ * the same words the failed analysis would use, and analysis is not offered. It is worded about
+ * this computer rather than about the recording, so nobody is left thinking their video is at
+ * fault, which was the worry behind letting checks through in the first place.
  */
 export function couldNotCheck(message: string): VideoValidation {
+  const explained = explainPythonFailure(message)
+  if (explained !== message) {
+    return { ok: false, code: 'not_set_up', reason: explained }
+  }
   return {
     ok: true,
     code: 'check_failed',
