@@ -1,7 +1,7 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process'
 import { createInterface } from 'readline'
-import { join } from 'path'
-import { existsSync } from 'fs'
+import { join, basename } from 'path'
+import { existsSync, writeFileSync } from 'fs'
 import { app } from 'electron'
 import type {
   FusionMode,
@@ -158,6 +158,40 @@ export function explainPythonFailure(raw: string): string {
   return raw
 }
 
+/**
+ * What to say when the analysis program stops part-way without explaining itself.
+ *
+ * That happens when the program is closed from outside or crashes, and the only account of it
+ * is whatever the program had printed as it went. For this program that is mostly the body
+ * tracking library's own start-up notes, and in testing the screen filled with lines such as
+ * "W0000 … inference_feedback_manager.cc:114] Feedback manager requires a model with a single
+ * signature inference", none of which says anything a person can act on. So the screen says
+ * what happened in plain words, and the printed detail is kept in a file for anyone diagnosing
+ * it, rather than thrown away.
+ */
+export function explainUnexpectedStop(savedTo?: string): string {
+  return (
+    'The analysis stopped before it finished, because the program doing it closed ' +
+    'unexpectedly. Trying again usually works. If it keeps happening, restarting the computer ' +
+    'can help.' +
+    (savedTo
+      ? ` The technical details were saved in this session's folder as ${basename(savedTo)}.`
+      : '')
+  )
+}
+
+/** Keeps what the analysis program printed, beside the session it belongs to. Best effort. */
+export function saveErrorDetail(outDir: string | undefined, detail: string): string | undefined {
+  if (!outDir) return undefined
+  try {
+    const file = join(outDir, 'analysis-error.txt')
+    writeFileSync(file, detail)
+    return file
+  } catch {
+    return undefined
+  }
+}
+
 export interface RunPipelineOptions {
   sessionId: number
   fusionMode: FusionMode
@@ -250,8 +284,14 @@ export function runPipeline(opts: RunPipelineOptions): Promise<PipelineResult> {
       } else if (errorMsg) {
         reject(new Error(explainPythonFailure(errorMsg)))
       } else if (code !== 0) {
+        const detail = `Pipeline exited with code ${code}: ${stderr.join('')}`
+        const explained = explainPythonFailure(detail)
         reject(
-          new Error(explainPythonFailure(`Pipeline exited with code ${code}: ${stderr.join('')}`))
+          new Error(
+            explained !== detail
+              ? explained
+              : explainUnexpectedStop(saveErrorDetail(opts.outDir, detail))
+          )
         )
       } else if (!result) {
         reject(new Error('Pipeline produced no result.'))
