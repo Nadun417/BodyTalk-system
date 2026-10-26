@@ -93,8 +93,12 @@ export default function Processing(): JSX.Element {
     return (
       <main className="page narrow center" style={{ paddingTop: 80 }}>
         <h1>The analysis could not finish</h1>
+        {/* This used to say nothing was saved, which was not true: the attempt stays in the
+            session list, marked as an error, along with its copy of the video, until it is
+            deleted. Saying where it is lets the person tidy it away. */}
         <p className="subtitle" style={{ marginBottom: 20 }}>
-          Nothing was saved for this session.
+          No results were saved. The attempt stays in your sessions, marked as an error, until you
+          delete it.
         </p>
         <div className="notice bad" style={{ textAlign: 'left' }}>
           {error}
