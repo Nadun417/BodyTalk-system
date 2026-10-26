@@ -144,6 +144,10 @@ export function registerIpcHandlers(): void {
       buttons: ['Delete', 'Cancel'],
       defaultId: 1,
       cancelId: 1,
+      // Ordinary buttons, not the large link Windows otherwise draws for "Delete". With the
+      // link, the keyboard started on Delete whatever the default said, and in testing a
+      // single press of Enter deleted the session. With ordinary buttons it starts on Cancel.
+      noLink: true,
       title: 'Delete this session?',
       message: `Delete the analysis of ${session.videoFilename}?`,
       detail:

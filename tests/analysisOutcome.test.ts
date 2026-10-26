@@ -136,6 +136,17 @@ describe('deleting a session', () => {
     expect(question.buttons[question.cancelId]).toBe('Cancel')
   })
 
+  /**
+   * The default above was set from the start, and Windows still ignored it: it drew "Delete"
+   * as a large link and put the keyboard on it, so Enter deleted the session. Found by pressing
+   * Enter in the installed app. Asking for ordinary buttons is what makes the default hold.
+   */
+  it('asks for ordinary buttons, so the keyboard starts on the safe answer', async () => {
+    showMessageBox.mockResolvedValue({ response: 1 })
+    const question = (await remove(), showMessageBox.mock.calls[0][0]) as { noLink?: boolean }
+    expect(question.noLink).toBe(true)
+  })
+
   it('deletes when the answer is yes', async () => {
     showMessageBox.mockResolvedValue({ response: 0 })
     expect(await remove()).toEqual({ deleted: true })
