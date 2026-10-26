@@ -5,7 +5,9 @@ separated from the file reading precisely so it can be checked against made-up o
 on any machine, with or without the video library and the detector installed.
 
 What is not covered here is whether the file reading itself reports the right things. That
-needs a real video and is checked by running the command against the calibration clips.
+needs a real video and is checked by running the command against the calibration clips. The
+one exception is the last test, a file that is not a video at all, which needs no video to
+make and shows the reading step refusing it rather than only the judgement.
 """
 
 import pytest
@@ -245,3 +247,21 @@ def test_a_missing_video_library_is_reported_rather_than_blamed_on_the_video(mon
     monkeypatch.setitem(sys.modules, "cv2", None)
     with pytest.raises(RuntimeError, match="not installed"):
         validation._read_facts(__file__)
+
+
+def test_a_file_that_is_not_a_video_is_refused_even_with_a_video_name(tmp_path):
+    """The check goes by what is in the file, not by its name.
+
+    The file picker only offers video file types, but a file can be dragged in from anywhere,
+    and a name ending in .mp4 says nothing about what is inside. This one is two lines of text.
+    It goes through the real reading step, so it needs the video library installed.
+    """
+    pytest.importorskip("cv2")
+    import validation
+
+    notes = tmp_path / "interview.mp4"
+    notes.write_text("These are my notes for the interview.\nThis file is not a video.\n")
+
+    result = validation.validate_video(str(notes), check_person=False)
+    assert not result.ok
+    assert result.code == "unreadable"
