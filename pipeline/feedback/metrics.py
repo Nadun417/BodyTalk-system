@@ -30,6 +30,7 @@ moved little, not that the person felt little.
 
 from __future__ import annotations
 
+import math
 import statistics as stats
 from dataclasses import dataclass
 from typing import Sequence
@@ -41,6 +42,20 @@ from analysers import CHANNEL_METRICS, MetricSpec
 #: shape the score, and pointing at it would be reading noise aloud. This governs only
 #: whether a sentence gets written, never any score.
 NEGLIGIBLE_SHORTFALL = 1.0
+
+
+def whole(value: float) -> int:
+    """A score as the whole number the results screen and the report show for it.
+
+    The screen never sees the full figure. The results file stores each average to one decimal
+    place, and the screen rounds that stored figure to a whole number, a half going up. So an
+    average of 64.46 is stored as 64.5 and shown as 65. The sentences written here are printed
+    right next to those numbers, and in testing a sentence that rounded 64.46 straight to 64
+    sat beside a table showing 65. Taking the same two steps as the screen keeps them the same.
+    Rounding twice can lift a figure like 64.46 to 65, a difference of under one point; what
+    matters here is that the page never shows two different numbers for one measurement.
+    """
+    return math.floor(round(value, 1) + 0.5)
 
 
 @dataclass
@@ -194,7 +209,7 @@ def explain_channel(
     # construction and the second is not. The driving measurement is the largest single
     # contributor, which does not have to mean it is more than half of it.
     sentence = (
-        f"The biggest factor was {driver.label}, at {driver.mean_score:.0f} out of 100."
+        f"The biggest factor was {driver.label}, at {whole(driver.mean_score)} out of 100."
     )
 
     # Naming what went well alongside it is not decoration. Without it the sentence reads
@@ -205,13 +220,13 @@ def explain_channel(
         if r.scored and r.metric != driver.metric and r.mean_score is not None
     ]
     if others:
-        parts = [f"{r.label} scored {r.mean_score:.0f}" for r in others]
+        parts = [f"{r.label} scored {whole(r.mean_score)}" for r in others]
         joined = _join(parts)
         sentence += f" {joined[0].upper()}{joined[1:]}."
 
     if driver.coverage < 0.5:
         sentence += (
-            f" That could only be measured for {driver.coverage * 100:.0f}% of the recording, "
+            f" That could only be measured for {whole(driver.coverage * 100)}% of the recording, "
             "so take it as a rough guide."
         )
 

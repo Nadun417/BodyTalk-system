@@ -18,9 +18,11 @@ import pytest
 from analysers import CHANNEL_METRICS
 from feedback.metrics import (
     NEGLIGIBLE_SHORTFALL,
+    MetricReport,
     driving_metric,
     explain_channel,
     metric_reports,
+    whole,
 )
 
 
@@ -253,3 +255,27 @@ def test_the_hand_channel_is_the_only_one_with_a_measurement_that_does_not_count
         if not spec.scored
     }
     assert unscored == {("hands", "fidget")}
+
+
+# ------------------------------------------------- numbers in sentences match the screen
+
+
+def test_a_score_is_rounded_the_way_the_screen_shows_it():
+    """The screen shows the stored one-decimal average rounded again, a half going up. In
+    testing a measurement averaging 64.46 was stored as 64.5 and shown as 65, while its sentence,
+    rounding 64.46 directly, said 64."""
+    assert whole(64.46) == 65  # stored 64.5, shown 65
+    assert whole(64.5) == 65
+    assert whole(78.5) == 79
+    assert whole(64.44) == 64  # stored 64.4, shown 64
+    assert whole(0.0) == 0 and whole(100.0) == 100
+
+
+def test_the_sentence_quotes_the_same_number_as_the_table():
+    reports = [
+        MetricReport("face", "stability", "keeping your head steady", True, 64.46, 100, 1.0, 11.9),
+        MetricReport("face", "liveliness", "varying your expression", True, 94.5, 100, 1.0, 1.8),
+    ]
+    sentence = explain_channel(85.0, reports)
+    assert "at 65 out of 100" in sentence
+    assert "varying your expression scored 95" in sentence.lower()

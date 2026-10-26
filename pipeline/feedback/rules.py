@@ -46,7 +46,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Iterable, Sequence
 
-from .metrics import explain_channel
+from .metrics import explain_channel, whole
 
 #: How long a gap inside an interval can be before it breaks the interval in two.
 GAP_TOLERANCE_S = 1.0
@@ -580,7 +580,7 @@ def recommendations(
         observation = (
             f"Your {label} came out best this time."
             if best == overall_best
-            else f"Your {label} scored {scored[best]:.0f} out of 100."
+            else f"Your {label} scored {whole(scored[best])} out of 100."
         )
         out.append(
             Recommendation(
@@ -627,4 +627,4 @@ def _strength_for(channel: str, reports: dict[str, Sequence] | None) -> str | No
     best = max(scored, key=lambda r: (r.mean_score, r.metric))
     # "Best result" rather than the earlier "steadiest measurement", which read as though it
     # were about keeping still whichever measurement it named.
-    return f"Your best result here was {best.label}, at {best.mean_score:.0f} out of 100."
+    return f"Your best result here was {best.label}, at {whole(best.mean_score)} out of 100."
