@@ -138,8 +138,26 @@ export interface AnalyseOptions {
  *
  * If anything fails, the session is marked accordingly rather than left sitting on
  * "processing" forever, which is what it would otherwise look like to the user.
+ *
+ * Only one analysis ever runs for a session. Asking again while one is running joins that run
+ * and gets its answer. This matters because the progress screen asks when it appears, and it
+ * appears again whenever somebody leaves it during an analysis and comes back, for instance by
+ * opening Settings and pressing Back. In testing that started a second analysis on the same
+ * session, which found the first one's half-written landmark file, analysed only the 46
+ * seconds in it, and showed the result as complete until the first run finished and wrote
+ * over it.
  */
-export async function analyse(opts: AnalyseOptions): Promise<PipelineResult> {
+const running = new Map<number, Promise<PipelineResult>>()
+
+export function analyse(opts: AnalyseOptions): Promise<PipelineResult> {
+  const already = running.get(opts.sessionId)
+  if (already) return already
+  const run = runOnce(opts).finally(() => running.delete(opts.sessionId))
+  running.set(opts.sessionId, run)
+  return run
+}
+
+async function runOnce(opts: AnalyseOptions): Promise<PipelineResult> {
   setStatus(opts.sessionId, 'processing')
   try {
     const result = await runPipeline({

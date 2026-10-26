@@ -164,3 +164,42 @@ describe('which copy of the video gets analysed', () => {
     expect(mockedRun.mock.calls[0][0].videoPath).toBe('C:/somebody/videos/practice.mp4')
   })
 })
+
+/**
+ * Found in testing the installed app: leaving the progress screen during an analysis, by
+ * opening Settings and pressing Back, made the screen ask for the analysis again. A second run
+ * started on the same session, read the first run's half-written landmark file and showed the
+ * part it had read so far as a finished result.
+ */
+describe('one analysis per session', () => {
+  const opts = {
+    sessionId: 19,
+    fusionMode: 'adaptive' as const,
+    videoPath: 'C:/somebody/videos/practice.mp4',
+    onProgress: () => {}
+  }
+
+  it('joins a run that is already going instead of starting a second one', async () => {
+    vi.clearAllMocks()
+    let finish: (r: typeof emptyResult) => void = () => {}
+    mockedRun.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const first = analyse(opts)
+    const second = analyse(opts)
+    finish(emptyResult)
+    expect(await second).toBe(await first)
+    expect(mockedRun).toHaveBeenCalledTimes(1)
+  })
+
+  it('starts afresh once the earlier run has finished', async () => {
+    vi.clearAllMocks()
+    mockedRun.mockResolvedValue(emptyResult)
+    await analyse(opts)
+    await analyse(opts)
+    expect(mockedRun).toHaveBeenCalledTimes(2)
+  })
+})
